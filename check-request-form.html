@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Check Request — 1st U.S. Volunteer Cavalry Regiment</title>
+<title>Check Request — Rough Riders</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{--navy:#1a2744;--navy-light:#243460;--gold:#c9a227;--gold-pale:#fdf5dc;--cream:#faf8f3;--text:#1a1a1a;--text-mid:#4a4a4a;--text-muted:#777;--border:#ddd;--border-strong:#bbb;--white:#fff;--success:#2a7a4f;--success-bg:#e8f5ee;--danger:#c0392b;--danger-bg:#fdecea;--warning:#b7791f;--warning-bg:#fef3cd;--radius:6px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -12,7 +13,11 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .header-emblem{width:52px;height:52px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .header-text h1{font-size:18px;font-weight:bold;letter-spacing:.03em}
 .header-text p{font-size:12px;color:#b0bcd4;margin-top:2px;font-family:Arial,sans-serif;letter-spacing:.05em;text-transform:uppercase}
-.main{max-width:880px;margin:0 auto;padding:28px 20px 60px}
+.conn-status{margin-left:auto;font-family:Arial,sans-serif;font-size:12px;display:flex;align-items:center;gap:6px}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#aaa}
+.conn-dot.ok{background:#4caf50}
+.conn-dot.err{background:#e53935}
+.main{max-width:900px;margin:0 auto;padding:28px 20px 60px}
 .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--navy);margin-bottom:28px;font-family:Arial,sans-serif;font-size:13px}
 .tab{padding:9px 20px;cursor:pointer;color:var(--text-mid);border:1px solid transparent;border-bottom:none;border-radius:5px 5px 0 0;background:none;font-family:inherit;font-size:inherit;transition:background .15s}
 .tab:hover{background:#e8e4d8}
@@ -20,151 +25,175 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .tab .count{display:inline-block;background:var(--gold);color:var(--navy);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:6px;font-weight:bold}
 .tab.active .count{background:white}
 .panel{display:none}.panel.active{display:block}
+/* form */
 .form-card{background:white;border:1px solid var(--border);border-radius:8px;padding:28px 32px}
 .form-card h2{font-size:17px;color:var(--navy);margin-bottom:6px;border-bottom:2px solid var(--gold);padding-bottom:8px}
 .form-card .subtitle{font-size:13px;color:var(--text-muted);margin-bottom:22px;font-family:Arial,sans-serif}
 .form-row{display:grid;gap:16px;margin-bottom:16px}
-.form-row.cols-2{grid-template-columns:1fr 1fr}
-.form-row.cols-3{grid-template-columns:1fr 1fr 1fr}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr}
 .form-group{display:flex;flex-direction:column;gap:5px}
 .form-group label{font-size:12px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif}
-.form-group label .req{color:var(--danger)}
-.form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:14px;font-family:Arial,sans-serif;color:var(--text);background:white;transition:border-color .15s}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.12)}
+.req{color:var(--danger)}
+.form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:14px;font-family:Arial,sans-serif;color:var(--text);background:white}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.1)}
 .form-group textarea{resize:vertical;min-height:72px}
-.form-section-label{font-size:13px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;font-family:Arial,sans-serif;margin:22px 0 12px;border-left:3px solid var(--gold);padding-left:10px}
-.receipt-rows{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
-.receipt-row{display:grid;grid-template-columns:1fr 120px 100px 36px;gap:0;align-items:center;border-bottom:1px solid var(--border)}
-.receipt-row:last-child{border-bottom:none}
-.receipt-row input{border:none;border-right:1px solid var(--border);border-radius:0;padding:8px 10px;font-size:13px;width:100%}
-.receipt-row input:focus{outline:none;background:#f0f4ff}
-.receipt-header{background:#f5f3ec;font-size:11px;font-weight:bold;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif}
-.receipt-header span{padding:6px 10px;display:block}
-.btn-remove{background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:0 10px;line-height:1;font-family:Arial,sans-serif}
-.btn-remove:hover{color:var(--danger)}
-.receipt-total{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:10px 12px;background:var(--gold-pale);border:1px solid #e8d89a;border-radius:var(--radius);font-family:Arial,sans-serif}
-.receipt-total .label{font-size:13px;color:var(--text-mid)}
-.receipt-total .amount{font-size:20px;font-weight:bold;color:var(--navy)}
-.btn-add-row{background:none;border:1px dashed var(--border-strong);color:var(--text-mid);border-radius:var(--radius);padding:7px 14px;cursor:pointer;font-size:13px;font-family:Arial,sans-serif;margin-bottom:12px}
-.btn-add-row:hover{border-color:var(--navy);color:var(--navy);background:#f0f4ff}
+.fsec{font-size:13px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;font-family:Arial,sans-serif;margin:22px 0 12px;border-left:3px solid var(--gold);padding-left:10px}
+.chair-box{background:#f0f4ff;border:1px solid #c0cef0;border-radius:6px;padding:12px 14px;margin-bottom:4px}
+.chair-note{font-size:11px;color:#5566aa;font-family:Arial,sans-serif;margin-top:6px}
+/* line items */
+.li-table{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+.li-row{display:grid;grid-template-columns:1fr 120px 110px 36px;align-items:center;border-bottom:1px solid var(--border)}
+.li-row:last-child{border-bottom:none}
+.li-row input{border:none;border-right:1px solid var(--border);border-radius:0;padding:8px 10px;font-size:13px;width:100%;font-family:Arial,sans-serif}
+.li-row input:last-of-type{border-right:none}
+.li-row input:focus{outline:none;background:#f0f4ff}
+.li-head{background:#f5f3ec;font-size:11px;font-weight:bold;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif}
+.li-head span{padding:6px 10px;display:block}
+.btn-rm{background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:0 10px;line-height:1}
+.btn-rm:hover{color:var(--danger)}
+.total-bar{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:10px 12px;background:var(--gold-pale);border:1px solid #e8d89a;border-radius:var(--radius);font-family:Arial,sans-serif}
+.total-bar .lbl{font-size:13px;color:var(--text-mid)}
+.total-bar .amt{font-size:20px;font-weight:bold;color:var(--navy)}
+.btn-add{background:none;border:1px dashed var(--border-strong);color:var(--text-mid);border-radius:var(--radius);padding:7px 14px;cursor:pointer;font-size:13px;font-family:Arial,sans-serif;margin-bottom:12px}
+.btn-add:hover{border-color:var(--navy);color:var(--navy);background:#f0f4ff}
 .form-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:24px;border-top:1px solid var(--border);padding-top:20px}
-.btn-primary{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:10px 28px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif;font-weight:bold;letter-spacing:.03em}
+.btn-primary{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:10px 28px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif;font-weight:bold}
 .btn-primary:hover{background:var(--navy-light)}
-.btn-secondary{background:white;color:var(--navy);border:1px solid var(--navy);border-radius:var(--radius);padding:10px 20px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif}
-.btn-secondary:hover{background:var(--cream)}
-.queue-filters{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:Arial,sans-serif;font-size:13px}
-.filter-btn{padding:5px 14px;border:1px solid var(--border-strong);border-radius:20px;background:white;cursor:pointer;color:var(--text-mid)}
-.filter-btn.active{background:var(--navy);color:white;border-color:var(--navy)}
-.req-card{background:white;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.btn-primary:disabled{background:#aaa;cursor:not-allowed}
+.btn-sec{background:white;color:var(--navy);border:1px solid var(--navy);border-radius:var(--radius);padding:10px 20px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif}
+.btn-sec:hover{background:var(--cream)}
+/* queue */
+.q-filters{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:Arial,sans-serif;font-size:13px;align-items:center}
+.flt{padding:5px 14px;border:1px solid var(--border-strong);border-radius:20px;background:white;cursor:pointer;color:var(--text-mid)}
+.flt.active{background:var(--navy);color:white;border-color:var(--navy)}
+.req-card{background:white;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .req-card:hover{border-color:var(--navy);box-shadow:0 2px 8px rgba(26,39,68,.1)}
-.req-card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #f0ebe0}
-.req-card-header-left{display:flex;align-items:center;gap:12px}
-.req-id{font-family:'Courier New',monospace;font-size:12px;color:var(--text-muted)}
-.req-payee{font-size:15px;font-weight:bold;color:var(--navy)}
-.req-amount{font-size:17px;font-weight:bold;color:var(--text);font-family:Arial,sans-serif}
-.req-card-body{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.req-meta{font-size:12px;color:var(--text-muted);font-family:Arial,sans-serif;line-height:1.6}
-.req-meta strong{color:var(--text-mid)}
-.pipeline{display:flex;align-items:center;gap:0;flex-shrink:0}
+.rch{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #f0ebe0}
+.rch-l{display:flex;align-items:center;gap:12px}
+.rid{font-family:'Courier New',monospace;font-size:12px;color:var(--text-muted)}
+.rpayee{font-size:15px;font-weight:bold;color:var(--navy)}
+.ramt{font-size:17px;font-weight:bold;color:var(--text);font-family:Arial,sans-serif}
+.rcb{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.rmeta{font-size:12px;color:var(--text-muted);font-family:Arial,sans-serif;line-height:1.7}
+.rmeta strong{color:var(--text-mid)}
+/* pipeline */
+.pipeline{display:flex;align-items:center;flex-shrink:0}
 .pip-step{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px}
-.pip-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;position:relative;z-index:1;flex-shrink:0;border:2px solid}
+.pip-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;border:2px solid;flex-shrink:0}
 .pip-dot.done{background:var(--success);border-color:var(--success);color:white}
-.pip-dot.current{background:white;border-color:var(--gold);color:var(--gold);animation:pulse-border 1.5s infinite}
+.pip-dot.current{background:white;border-color:var(--gold);color:var(--gold);animation:pulse 1.5s infinite}
 .pip-dot.pending{background:white;border-color:#ccc;color:#ccc}
 .pip-dot.rejected{background:var(--danger);border-color:var(--danger);color:white}
-@keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}50%{box-shadow:0 0 0 4px rgba(201,162,39,.25)}}
-.pip-label{font-size:10px;color:var(--text-muted);font-family:Arial,sans-serif;text-align:center;white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis}
-.pip-connector{width:24px;height:2px;background:#ddd;flex-shrink:0;margin:0 -1px;position:relative;top:-10px}
-.pip-connector.done{background:var(--success)}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
-.badge-pending{background:var(--warning-bg);color:var(--warning);border:1px solid #e8c97a}
-.badge-complete{background:var(--success-bg);color:var(--success);border:1px solid #a3d9b9}
-.badge-rejected{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
-.badge-draft{background:#f0eee8;color:#777;border:1px solid #ddd}
-.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:20px}
-.modal-backdrop.open{display:flex}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}50%{box-shadow:0 0 0 4px rgba(201,162,39,.25)}}
+.pip-lbl{font-size:10px;color:var(--text-muted);font-family:Arial,sans-serif;text-align:center;white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis}
+.pip-conn{width:24px;height:2px;background:#ddd;flex-shrink:0;position:relative;top:-10px}
+.pip-conn.done{background:var(--success)}
+/* badges */
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;text-transform:uppercase;white-space:nowrap}
+.b-pending{background:var(--warning-bg);color:var(--warning);border:1px solid #e8c97a}
+.b-complete{background:var(--success-bg);color:var(--success);border:1px solid #a3d9b9}
+.b-rejected{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
+/* modal */
+.mbk{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:20px}
+.mbk.open{display:flex}
 .modal{background:white;border-radius:10px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)}
-.modal-header{background:var(--navy);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;border-radius:10px 10px 0 0;position:sticky;top:0;z-index:10}
-.modal-header h3{font-size:16px}
-.modal-header .modal-id{font-size:12px;color:#8fa8cc;font-family:'Courier New',monospace;margin-top:2px}
-.btn-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;line-height:1;padding:0 2px;opacity:.7}
-.btn-close:hover{opacity:1}
-.modal-body{padding:24px}
-.detail-pipeline{display:flex;align-items:center;gap:0;margin-bottom:24px;justify-content:center;background:#f8f6f0;border-radius:8px;padding:16px}
-.detail-pip-step{display:flex;flex-direction:column;align-items:center;gap:6px}
-.detail-pip-dot{width:36px;height:36px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;font-family:Arial,sans-serif}
-.detail-pip-dot.done{background:var(--success);border-color:var(--success);color:white}
-.detail-pip-dot.current{background:white;border-color:var(--gold);color:var(--navy)}
-.detail-pip-dot.pending{background:white;border-color:#ccc;color:#ccc}
-.detail-pip-dot.rejected{background:var(--danger);border-color:var(--danger);color:white}
-.detail-pip-label{font-size:12px;color:var(--text-mid);font-family:Arial,sans-serif;text-align:center;max-width:80px;line-height:1.3}
-.detail-pip-sublabel{font-size:10px;color:var(--text-muted);font-family:Arial,sans-serif;text-align:center}
-.detail-pip-connector{width:40px;height:2px;background:#ddd;margin:0 2px;position:relative;top:-18px;flex-shrink:0}
-.detail-pip-connector.done{background:var(--success)}
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:20px}
-.detail-item label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-family:Arial,sans-serif;font-weight:bold}
-.detail-item p{font-size:14px;color:var(--text);margin-top:2px}
-.detail-item.full{grid-column:1 / -1}
-.detail-table{width:100%;border-collapse:collapse;font-size:13px;font-family:Arial,sans-serif;margin-bottom:14px}
-.detail-table th{background:#f5f3ec;text-align:left;padding:7px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);border-bottom:1px solid var(--border)}
-.detail-table td{padding:8px 12px;border-bottom:1px solid #f0ebe0}
-.detail-table tr:last-child td{border-bottom:none}
-.detail-total-row{background:var(--gold-pale);font-weight:bold}
-.detail-total-row td{padding:10px 12px}
-.approval-log{margin-top:20px}
-.approval-log h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);font-family:Arial,sans-serif;margin-bottom:10px}
-.log-entry{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f0ebe0;font-family:Arial,sans-serif;font-size:13px}
-.log-entry:last-child{border-bottom:none}
-.log-dot{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold}
-.log-dot.approved{background:var(--success-bg);color:var(--success)}
-.log-dot.rejected{background:var(--danger-bg);color:var(--danger)}
-.log-dot.submitted{background:#e8eeff;color:#2a4ab0}
-.log-content{flex:1}
-.log-title{font-weight:bold;color:var(--text)}
-.log-sub{color:var(--text-muted);font-size:12px;margin-top:1px}
-.log-note{background:var(--warning-bg);color:var(--warning);border-radius:4px;padding:4px 8px;font-size:12px;margin-top:6px;display:inline-block}
-.action-zone{background:#f8f6f0;border-radius:8px;padding:18px;margin-top:20px}
-.action-zone h4{font-size:13px;font-family:Arial,sans-serif;color:var(--navy);margin-bottom:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em}
-.action-zone textarea{width:100%;padding:9px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);font-family:Arial,sans-serif;font-size:13px;resize:none;height:60px;margin-bottom:12px}
-.action-zone textarea:focus{outline:none;border-color:var(--navy)}
-.action-btns{display:flex;gap:10px}
+.mhdr{background:var(--navy);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;border-radius:10px 10px 0 0;position:sticky;top:0;z-index:10}
+.mhdr h3{font-size:16px;margin:0}
+.mhdr .mid{font-size:12px;color:#8fa8cc;font-family:'Courier New',monospace;margin-top:3px}
+.btn-x{background:none;border:none;color:white;font-size:24px;cursor:pointer;line-height:1;opacity:.7;padding:0}
+.btn-x:hover{opacity:1}
+.mbdy{padding:24px}
+.dpipe{display:flex;align-items:center;margin-bottom:24px;justify-content:center;background:#f8f6f0;border-radius:8px;padding:16px;gap:0}
+.dps{display:flex;flex-direction:column;align-items:center;gap:5px}
+.dpd{width:36px;height:36px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;font-family:Arial,sans-serif}
+.dpd.done{background:var(--success);border-color:var(--success);color:white}
+.dpd.current{background:white;border-color:var(--gold);color:var(--navy)}
+.dpd.pending{background:white;border-color:#ccc;color:#ccc}
+.dpd.rejected{background:var(--danger);border-color:var(--danger);color:white}
+.dplbl{font-size:11px;color:var(--text-mid);font-family:Arial,sans-serif;text-align:center;max-width:80px;line-height:1.3}
+.dpsub{font-size:10px;color:var(--text-muted);font-family:Arial,sans-serif;text-align:center}
+.dpc{width:40px;height:2px;background:#ddd;margin:0 2px;position:relative;top:-18px;flex-shrink:0}
+.dpc.done{background:var(--success)}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:20px}
+.di label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-family:Arial,sans-serif;font-weight:bold}
+.di p{font-size:14px;color:var(--text);margin-top:2px}
+.di.full{grid-column:1/-1}
+.dtbl{width:100%;border-collapse:collapse;font-size:13px;font-family:Arial,sans-serif;margin-bottom:14px}
+.dtbl th{background:#f5f3ec;text-align:left;padding:7px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);border-bottom:1px solid var(--border)}
+.dtbl td{padding:8px 12px;border-bottom:1px solid #f0ebe0}
+.dtbl tr:last-child td{border-bottom:none}
+.dttl{background:var(--gold-pale);font-weight:bold}
+.dttl td{padding:10px 12px}
+.alog{margin-top:20px}
+.alog h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);font-family:Arial,sans-serif;margin-bottom:10px}
+.lent{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f0ebe0;font-family:Arial,sans-serif;font-size:13px}
+.lent:last-child{border-bottom:none}
+.ldot{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold}
+.ldot.approved{background:var(--success-bg);color:var(--success)}
+.ldot.rejected{background:var(--danger-bg);color:var(--danger)}
+.ldot.submitted{background:#e8eeff;color:#2a4ab0}
+.ltitle{font-weight:bold;color:var(--text)}
+.lsub{color:var(--text-muted);font-size:12px;margin-top:1px}
+.lnote{background:var(--warning-bg);color:var(--warning);border-radius:4px;padding:4px 8px;font-size:12px;margin-top:6px;display:inline-block}
+.azone{background:#f8f6f0;border-radius:8px;padding:18px;margin-top:20px}
+.azone h4{font-size:13px;font-family:Arial,sans-serif;color:var(--navy);margin-bottom:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em}
+.azone textarea{width:100%;padding:9px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);font-family:Arial,sans-serif;font-size:13px;resize:none;height:60px;margin-bottom:12px}
+.azone textarea:focus{outline:none;border-color:var(--navy)}
+.abtns{display:flex;gap:10px}
 .btn-approve{background:var(--success);color:white;border:none;border-radius:var(--radius);padding:9px 22px;font-size:13px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif}
 .btn-approve:hover{background:#1e6040}
 .btn-reject{background:var(--danger-bg);color:var(--danger);border:1px solid #e8b0ab;border-radius:var(--radius);padding:9px 22px;font-size:13px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif}
 .btn-reject:hover{background:#f8d7d5}
-.empty-state{text-align:center;padding:48px 20px;color:var(--text-muted);font-family:Arial,sans-serif}
-.empty-state .icon{font-size:40px;margin-bottom:12px}
-.empty-state p{font-size:14px}
-.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;border-left:4px solid var(--gold);max-width:340px}
+.empty{text-align:center;padding:48px 20px;color:var(--text-muted);font-family:Arial,sans-serif}
+.empty .ico{font-size:40px;margin-bottom:12px}
+/* toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;border-left:4px solid var(--gold);max-width:360px}
 .toast.show{opacity:1;transform:translateY(0)}
-/* Admin panel */
-.admin-section{background:white;border:1px solid var(--border);border-radius:8px;padding:24px 28px;margin-bottom:20px}
-.admin-section h3{font-size:15px;color:var(--navy);font-weight:bold;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--gold)}
-.admin-row{display:grid;grid-template-columns:160px 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px;font-family:Arial,sans-serif;font-size:13px}
-.admin-row .step-label{color:var(--text-mid);font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-.admin-row input{padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
-.admin-row input:focus{outline:none;border-color:var(--navy)}
-.admin-save-btn{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:8px 18px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif;font-weight:bold;white-space:nowrap}
-.admin-save-btn:hover{background:var(--navy-light)}
-.admin-note{font-size:12px;color:var(--text-muted);font-family:Arial,sans-serif;margin-top:6px}
-.admin-lock{background:#f5f3ec;border:1px solid #e0dbd0;border-radius:var(--radius);padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:18px}
-.admin-lock input{flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px}
-.admin-lock button{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:7px 16px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif}
-.locked-msg{font-size:13px;color:var(--danger);font-family:Arial,sans-serif;font-weight:bold}
-#admin-content{display:none}
-.email-test-row{display:flex;gap:10px;align-items:center;margin-top:14px;font-family:Arial,sans-serif;font-size:13px;flex-wrap:wrap}
-.email-test-row input{padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;flex:1;min-width:200px}
-.reviewer-select{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-.reviewer-select label{font-size:12px;color:var(--text-mid);font-family:Arial,sans-serif;font-weight:bold;text-transform:uppercase;white-space:nowrap}
-.reviewer-select select{padding:6px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif;flex:1;min-width:140px}
-.optgroup-style{font-style:normal}
-select optgroup{font-style:normal;font-weight:bold}
-.chair-fields{background:#f0f4ff;border:1px solid #c0cef0;border-radius:6px;padding:12px 14px;margin-bottom:4px}
-.chair-fields .chair-note{font-size:11px;color:#5566aa;font-family:Arial,sans-serif;margin-top:6px}
-@media(max-width:600px){.form-row.cols-2,.form-row.cols-3{grid-template-columns:1fr}.req-card-body{flex-direction:column;align-items:flex-start}.detail-grid{grid-template-columns:1fr}.form-card{padding:18px 16px}.page-header{padding:14px 16px}.main{padding:18px 12px 40px}.admin-row{grid-template-columns:1fr 1fr}}
+/* admin */
+.adm-sec{background:white;border:1px solid var(--border);border-radius:8px;padding:24px 28px;margin-bottom:20px}
+.adm-sec h3{font-size:15px;color:var(--navy);font-weight:bold;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--gold)}
+.adm-note{font-size:12px;color:var(--text-muted);font-family:Arial,sans-serif;margin-bottom:14px}
+.arow{display:grid;grid-template-columns:150px 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px;font-family:Arial,sans-serif;font-size:13px}
+.arow .slbl{color:var(--text-mid);font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.arow input{padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
+.arow input:focus{outline:none;border-color:var(--navy)}
+.asave{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:8px 16px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif;font-weight:bold;white-space:nowrap}
+.asave:hover{background:var(--navy-light)}
+.lock-row{background:#f5f3ec;border:1px solid #e0dbd0;border-radius:var(--radius);padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.lock-row input{flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px}
+.lock-row button{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:7px 16px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif}
+#adm-content{display:none}
+/* list editor */
+.list-editor{border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:10px;max-height:320px;overflow-y:auto}
+.le-row{display:flex;align-items:center;gap:0;border-bottom:1px solid #f0ebe0}
+.le-row:last-child{border-bottom:none}
+.le-row input{flex:1;border:none;padding:7px 10px;font-size:13px;font-family:Arial,sans-serif;background:transparent}
+.le-row input:focus{outline:none;background:#f8f6ff}
+.le-row .le-type{width:180px;border:none;border-left:1px solid var(--border);padding:7px 8px;font-size:12px;font-family:Arial,sans-serif;background:transparent;color:var(--text-mid)}
+.le-row .le-type:focus{outline:none}
+.le-row .le-acct{width:80px;border:none;border-left:1px solid var(--border);padding:7px 8px;font-size:12px;font-family:'Courier New',monospace;background:transparent;color:var(--text-mid)}
+.le-row .le-acct:focus{outline:none}
+.le-rm{background:none;border:none;color:#ccc;font-size:16px;padding:0 10px;cursor:pointer;flex-shrink:0}
+.le-rm:hover{color:var(--danger)}
+.le-head{background:#f5f3ec;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;font-family:Arial,sans-serif;color:var(--text-mid);display:flex;padding:6px 0}
+.le-head span{padding:0 10px}
+.add-entry{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.add-entry input{flex:1;min-width:140px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
+.add-entry select{padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
+.add-entry button{background:var(--navy);color:white;border:none;border-radius:var(--radius);padding:7px 14px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif;white-space:nowrap}
+.add-entry button:hover{background:var(--navy-light)}
+.test-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.test-row input{flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(250,248,243,.8);z-index:200;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:var(--navy);gap:12px}
+@media(max-width:600px){.form-row.c2,.form-row.c3{grid-template-columns:1fr}.arow{grid-template-columns:1fr 1fr}.rcb{flex-direction:column;align-items:flex-start}.dgrid{grid-template-columns:1fr}.form-card{padding:18px 16px}.page-header{padding:14px 16px}.main{padding:18px 12px 40px}}
 </style>
 </head>
 <body>
+
+<div id="loading-overlay" class="loading-overlay"><span class="spinner" style="border-color:var(--navy);border-top-color:transparent"></span>Connecting to database…</div>
 
 <div class="page-header">
   <div class="header-emblem">⚔️</div>
@@ -172,67 +201,57 @@ select optgroup{font-style:normal;font-weight:bold}
     <h1>Check Request System</h1>
     <p>1st U.S. Volunteer Cavalry Regiment — Rough Riders, Inc.</p>
   </div>
+  <div class="conn-status" id="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-lbl" style="color:#b0bcd4;font-size:12px"></span>
+  </div>
 </div>
 
 <div class="main">
   <div class="tab-bar">
     <button class="tab active" onclick="showTab('submit')">Submit Request</button>
-    <button class="tab" onclick="showTab('queue')" id="tab-queue">Approval Queue <span class="count" id="queue-count">0</span></button>
+    <button class="tab" onclick="showTab('queue')">Approval Queue <span class="count" id="qcount">0</span></button>
     <button class="tab" onclick="showTab('history')">History</button>
-    <button class="tab" onclick="showTab('admin')" style="margin-left:auto;border-color:transparent">⚙ Admin</button>
+    <button class="tab" onclick="showTab('admin')" style="margin-left:auto">⚙ Admin</button>
   </div>
 
-  <!-- SUBMIT TAB -->
+  <!-- SUBMIT -->
   <div class="panel active" id="panel-submit">
     <div class="form-card">
       <h2>New Check Request</h2>
-      <p class="subtitle">Complete all required fields. Your request routes through 4 sequential approval steps before payment is issued.</p>
+      <p class="subtitle">All required fields must be completed. The request routes through 4 sequential approvals before payment is issued.</p>
 
-      <div class="form-section-label">Submitter Information</div>
-      <div class="form-row cols-2">
-        <div class="form-group"><label>Your Name <span class="req">*</span></label><input type="text" id="f-submitter" placeholder="Full name"></div>
-        <div class="form-group"><label>Your Email <span class="req">*</span></label><input type="email" id="f-email" placeholder="your@email.com"></div>
+      <div class="fsec">Submitter Information</div>
+      <div class="form-row c2">
+        <div class="form-group"><label>Your Name <span class="req">*</span></label><input type="text" id="f-name" placeholder="Full name"></div>
+        <div class="form-group"><label>Your Email <span class="req">*</span></label><input type="email" id="f-email" placeholder="you@email.com"></div>
       </div>
-      <div class="form-row cols-2">
+      <div class="form-row c2">
         <div class="form-group"><label>Phone</label><input type="tel" id="f-phone" placeholder="(813) 555-0000"></div>
         <div class="form-group"><label>Date Submitted</label><input type="date" id="f-date"></div>
       </div>
 
-      <div class="form-section-label">Committee Chair (Step 1 Approver)</div>
-      <div class="chair-fields">
-        <div class="form-row cols-2" style="margin-bottom:0">
+      <div class="fsec">Committee Chair (Step 1 Approver)</div>
+      <div class="chair-box">
+        <div class="form-row c2" style="margin-bottom:0">
           <div class="form-group"><label>Chair Name <span class="req">*</span></label><input type="text" id="f-chair-name" placeholder="Full name of your committee chair"></div>
           <div class="form-group"><label>Chair Email <span class="req">*</span></label><input type="email" id="f-chair-email" placeholder="chair@email.com"></div>
         </div>
-        <div class="chair-note">The committee chair responsible for this expense must approve first before routing to Treasurer, Secretary, and President.</div>
+        <div class="chair-note">The committee chair for this expense approves first, then it routes to Treasurer → Secretary → President.</div>
       </div>
 
-      <div class="form-section-label">Payment Information</div>
-      <div class="form-row cols-2">
+      <div class="fsec">Payment Information</div>
+      <div class="form-row c2">
         <div class="form-group"><label>Payee Name <span class="req">*</span></label><input type="text" id="f-payee" placeholder="Person or company to pay"></div>
-        <div class="form-group"><label>Payment Method <span class="req">*</span></label>
-          <select id="f-method">
-            <option value="">— Select —</option>
-            <option>Check</option>
-            <option>ACH / Direct Transfer</option>
-            <option>Reimbursement</option>
-            <option>Credit Card</option>
-            <option>Other</option>
-          </select>
-        </div>
+        <div class="form-group"><label>Payee Address</label><input type="text" id="f-address" placeholder="Mailing address for check"></div>
       </div>
-      <div class="form-row cols-2">
-        <div class="form-group"><label>Payee Address</label><input type="text" id="f-address" placeholder="Street address (if mailing check)"></div>
-        <div class="form-group"><label>QB Account / Budget Category <span class="req">*</span></label>
-          <select id="f-category"><option value="">— Select Account —</option></select>
-        </div>
+      <div class="form-row c2">
+        <div class="form-group"><label>QB Account <span class="req">*</span></label><select id="f-account"><option value="">— Select Account —</option></select></div>
+        <div class="form-group"><label>Class / Project <span class="req">*</span></label><select id="f-class"><option value="">— Select Class —</option></select></div>
       </div>
 
-      <div class="form-section-label">Expense Detail</div>
-      <div class="form-row cols-2">
-        <div class="form-group"><label>Event / Project Class <span class="req">*</span></label>
-          <select id="f-class"><option value="">— Select Class —</option></select>
-        </div>
+      <div class="fsec">Expense Detail</div>
+      <div class="form-row c2">
         <div class="form-group"><label>Receipts / Invoices</label>
           <select id="f-receipts">
             <option value="">— Select —</option>
@@ -241,671 +260,860 @@ select optgroup{font-style:normal;font-weight:bold}
             <option>Not available</option>
           </select>
         </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Purpose / Description <span class="req">*</span></label>
-          <textarea id="f-purpose" placeholder="Briefly describe the purpose of this payment and how it benefits the organization..."></textarea>
+        <div class="form-group" style="grid-column:1/-1"><label>Purpose / Description <span class="req">*</span></label>
+          <textarea id="f-purpose" placeholder="Describe the purpose of this payment and how it benefits the organization…"></textarea>
         </div>
       </div>
 
-      <div class="form-section-label">Line Items</div>
-      <div class="receipt-rows" id="receipt-table">
-        <div class="receipt-row receipt-header">
-          <span>Item / Service</span><span>Date</span><span>Amount ($)</span><span></span>
-        </div>
+      <div class="fsec">Line Items</div>
+      <div class="li-table" id="li-table">
+        <div class="li-row li-head"><span>Item / Service</span><span>Date</span><span>Amount ($)</span><span></span></div>
       </div>
-      <button class="btn-add-row" onclick="addReceiptRow()">+ Add Line Item</button>
-      <div class="receipt-total">
-        <span class="label">Total Amount Requested:</span>
-        <span class="amount" id="total-display">$0.00</span>
-      </div>
+      <button class="btn-add" onclick="addLI()">+ Add Line Item</button>
+      <div class="total-bar"><span class="lbl">Total Amount Requested:</span><span class="amt" id="total-disp">$0.00</span></div>
 
       <div class="form-row" style="margin-top:16px">
         <div class="form-group"><label>Additional Notes</label>
-          <textarea id="f-notes" placeholder="Any additional context for approvers..."></textarea>
+          <textarea id="f-notes" placeholder="Any additional context for approvers…"></textarea>
         </div>
       </div>
 
       <div class="form-actions">
-        <button class="btn-secondary" onclick="clearForm()">Clear Form</button>
-        <button class="btn-primary" onclick="submitRequest()">Submit for Approval →</button>
+        <button class="btn-sec" onclick="clearForm()">Clear</button>
+        <button class="btn-primary" id="btn-submit" onclick="submitRequest()">Submit for Approval →</button>
       </div>
     </div>
   </div>
 
-  <!-- QUEUE TAB -->
+  <!-- QUEUE -->
   <div class="panel" id="panel-queue">
-    <div class="queue-filters">
-      <span style="font-weight:bold;color:var(--text-mid);align-self:center">Filter:</span>
-      <button class="filter-btn active" onclick="filterQueue(this,'all')">All</button>
-      <button class="filter-btn" onclick="filterQueue(this,'pending')">Pending</button>
-      <button class="filter-btn" onclick="filterQueue(this,'complete')">Approved</button>
-      <button class="filter-btn" onclick="filterQueue(this,'rejected')">Rejected</button>
+    <div class="q-filters">
+      <span style="font-weight:bold;color:var(--text-mid);font-family:Arial,sans-serif;font-size:13px">Filter:</span>
+      <button class="flt active" onclick="filterQ(this,'all')">All</button>
+      <button class="flt" onclick="filterQ(this,'pending')">Pending</button>
+      <button class="flt" onclick="filterQ(this,'complete')">Approved</button>
+      <button class="flt" onclick="filterQ(this,'rejected')">Rejected</button>
+      <button class="btn-sec" style="margin-left:auto;padding:5px 14px;font-size:13px" onclick="loadRequests()">↻ Refresh</button>
     </div>
-    <div id="queue-list"></div>
+    <div id="q-list"></div>
   </div>
 
-  <!-- HISTORY TAB -->
+  <!-- HISTORY -->
   <div class="panel" id="panel-history">
-    <div id="history-list"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn-sec" style="padding:5px 14px;font-size:13px" onclick="loadRequests()">↻ Refresh</button>
+    </div>
+    <div id="h-list"></div>
   </div>
 
-  <!-- ADMIN TAB -->
+  <!-- ADMIN -->
   <div class="panel" id="panel-admin">
-    <div class="admin-section">
+    <div class="adm-sec">
       <h3>Admin Access</h3>
-      <div class="admin-lock" id="admin-lock-row">
-        <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">🔒 Password:</span>
-        <input type="password" id="admin-pw-input" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')checkAdminPw()">
-        <button onclick="checkAdminPw()">Unlock</button>
+      <div class="lock-row" id="lock-row">
+        <span style="color:var(--text-mid);white-space:nowrap">🔒 Password:</span>
+        <input type="password" id="adm-pw" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')checkPw()">
+        <button onclick="checkPw()">Unlock</button>
       </div>
-      <div id="admin-pw-err" class="locked-msg" style="display:none;margin-top:6px"></div>
+      <div id="pw-err" style="display:none;font-size:13px;color:var(--danger);font-family:Arial,sans-serif;margin-top:4px"></div>
     </div>
 
-    <div id="admin-content">
-      <!-- Approver Emails -->
-      <div class="admin-section">
+    <div id="adm-content">
+      <!-- Approvers 2-4 -->
+      <div class="adm-sec">
         <h3>Steps 2–4 Approver Emails</h3>
-        <p class="admin-note" style="margin-bottom:14px">These emails receive approval-request notifications at each step. Step 1 (Committee Chair) is entered per-request by the submitter.</p>
-        <div class="admin-row">
-          <span class="step-label">Step 2 — Treasurer</span>
-          <input type="text" id="a-name2" placeholder="Name">
-          <input type="email" id="a-email2" placeholder="Email address">
-          <button class="admin-save-btn" onclick="saveApprover(2)">Save</button>
-        </div>
-        <div class="admin-row">
-          <span class="step-label">Step 3 — Secretary</span>
-          <input type="text" id="a-name3" placeholder="Name">
-          <input type="email" id="a-email3" placeholder="Email address">
-          <button class="admin-save-btn" onclick="saveApprover(3)">Save</button>
-        </div>
-        <div class="admin-row">
-          <span class="step-label">Step 4 — President</span>
-          <input type="text" id="a-name4" placeholder="Name">
-          <input type="email" id="a-email4" placeholder="Email address">
-          <button class="admin-save-btn" onclick="saveApprover(4)">Save</button>
-        </div>
+        <p class="adm-note">Step 1 (Committee Chair) is entered by the submitter per request. Steps 2–4 are fixed org roles.</p>
+        <div class="arow"><span class="slbl">Step 2 — Treasurer</span><input type="text" id="a-n2" placeholder="Name"><input type="email" id="a-e2" placeholder="Email"><button class="asave" onclick="saveApprover(2)">Save</button></div>
+        <div class="arow"><span class="slbl">Step 3 — Secretary</span><input type="text" id="a-n3" placeholder="Name"><input type="email" id="a-e3" placeholder="Email"><button class="asave" onclick="saveApprover(3)">Save</button></div>
+        <div class="arow"><span class="slbl">Step 4 — President</span><input type="text" id="a-n4" placeholder="Name"><input type="email" id="a-e4" placeholder="Email"><button class="asave" onclick="saveApprover(4)">Save</button></div>
       </div>
 
       <!-- Office Manager -->
-      <div class="admin-section">
-        <h3>Office Manager (Final Approval Notification)</h3>
-        <p class="admin-note" style="margin-bottom:14px">When all 4 steps are approved, an "OK to Pay" email is sent to this address.</p>
-        <div class="admin-row">
-          <span class="step-label">Office Manager</span>
-          <input type="text" id="a-om-name" placeholder="Name">
-          <input type="email" id="a-om-email" placeholder="Email address">
-          <button class="admin-save-btn" onclick="saveOM()">Save</button>
+      <div class="adm-sec">
+        <h3>Office Manager — OK to Pay Recipient</h3>
+        <p class="adm-note">Receives the final "OK to Pay" email once all 4 approvals are complete.</p>
+        <div class="arow"><span class="slbl">Office Manager</span><input type="text" id="a-om-n" placeholder="Name"><input type="email" id="a-om-e" placeholder="Email"><button class="asave" onclick="saveOM()">Save</button></div>
+      </div>
+
+      <!-- QB Accounts editor -->
+      <div class="adm-sec">
+        <h3>QuickBooks Accounts</h3>
+        <p class="adm-note">Changes save to Supabase and appear in the dropdown immediately.</p>
+        <div class="le-head"><span style="flex:1">Account Name</span><span style="width:80px">Acct #</span><span style="width:36px"></span></div>
+        <div class="list-editor" id="acct-editor"></div>
+        <div class="add-entry">
+          <input type="text" id="new-acct-name" placeholder="Account name">
+          <input type="text" id="new-acct-no" placeholder="Acct # (optional)" style="width:120px;flex:none">
+          <button onclick="addAccount()">+ Add</button>
         </div>
       </div>
 
-      <!-- Resend API Key -->
-      <div class="admin-section">
+      <!-- QB Classes editor -->
+      <div class="adm-sec">
+        <h3>QuickBooks Classes</h3>
+        <p class="adm-note">Changes save to Supabase and appear in the dropdown immediately.</p>
+        <div class="le-head"><span style="flex:1">Class Name</span><span style="width:180px">Type</span><span style="width:36px"></span></div>
+        <div class="list-editor" id="class-editor"></div>
+        <div class="add-entry">
+          <input type="text" id="new-class-name" placeholder="Class name">
+          <select id="new-class-type">
+            <option>Fundraising</option>
+            <option>Program Services</option>
+            <option>Management &amp; General</option>
+            <option>Unrelated Business Taxable Income</option>
+            <option>Other</option>
+          </select>
+          <button onclick="addClass()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Resend -->
+      <div class="adm-sec">
         <h3>Email Service (Resend)</h3>
-        <p class="admin-note" style="margin-bottom:14px">Enter your Resend API key to enable email notifications. Emails send from <strong>r.conn@tamparoughriders.org</strong>.</p>
-        <div class="admin-row">
-          <span class="step-label">Resend API Key</span>
-          <input type="password" id="a-resend-key" placeholder="re_..." style="grid-column:span 2">
-          <button class="admin-save-btn" onclick="saveResendKey()">Save</button>
-        </div>
-        <div class="email-test-row">
-          <span style="color:var(--text-mid)">Test email to:</span>
-          <input type="email" id="test-email-addr" placeholder="your@email.com">
-          <button class="admin-save-btn" onclick="sendTestEmail()">Send Test</button>
+        <p class="adm-note">API key used for all notification emails. From: <strong>r.conn@tamparoughriders.org</strong></p>
+        <div class="arow"><span class="slbl">Resend API Key</span><input type="password" id="a-rk" placeholder="re_…" style="grid-column:span 2"><button class="asave" onclick="saveResendKey()">Save</button></div>
+        <div class="test-row">
+          <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">Send test to:</span>
+          <input type="email" id="test-addr" placeholder="you@email.com">
+          <button class="asave" onclick="sendTest()">Send Test</button>
         </div>
       </div>
 
-      <!-- Admin Password Change -->
-      <div class="admin-section">
+      <!-- Change password -->
+      <div class="adm-sec">
         <h3>Change Admin Password</h3>
-        <div class="admin-row">
-          <span class="step-label">New Password</span>
-          <input type="password" id="a-new-pw" placeholder="New password" style="grid-column:span 2">
-          <button class="admin-save-btn" onclick="changeAdminPw()">Update</button>
-        </div>
+        <div class="arow"><span class="slbl">New Password</span><input type="password" id="a-newpw" placeholder="New password" style="grid-column:span 2"><button class="asave" onclick="changePw()">Update</button></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- DETAIL MODAL -->
-<div class="modal-backdrop" id="modal-backdrop" onclick="closeModalOutside(event)">
-  <div class="modal" id="modal-content">
-    <div class="modal-header">
-      <div>
-        <h3 id="modal-payee">Check Request</h3>
-        <div class="modal-id" id="modal-id"></div>
-      </div>
-      <button class="btn-close" onclick="closeModal()">×</button>
+<!-- MODAL -->
+<div class="mbk" id="mbk" onclick="closeMBk(event)">
+  <div class="modal">
+    <div class="mhdr">
+      <div><h3 id="m-title"></h3><div class="mid" id="m-id"></div></div>
+      <button class="btn-x" onclick="closeModal()">×</button>
     </div>
-    <div class="modal-body" id="modal-body"></div>
+    <div class="mbdy" id="m-body"></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ---- DATA ----
-const QB_ACCOUNTS = ["Cost of Goods Sold","1301 - Prepaid Expense-Military Ball","1307 - Prepaid Expenses 2028","1310 - Prepaid Expenses - Non-Event","1311 - Pre-paid Expenses - Uniforms","6100 - Member Services","6101 - Member Services:Awards & Promotions","6102 - Member Services:Uniforms","6103 - Member Services:Member Recruitment & Retention Expenses","6104 - Member Services:Membership Meetings Food and Beverage Etc.","6105 - Member Services:Member Gifts & Appreciation","6106 - Member Services:Other expenses","6200 - Program Expenses","6201 - Program Expenses:Program Supplies","6202 - Program Expenses:Program Food & Beverage Expenses","6203 - Program Expenses:Program Venue/Facilities Expenses","6204 - Program Expenses:Program Repairs & Maintenance","6205 - Program Expenses:Program Travel Expenses","6206 - Program Expenses:Program Fuel","6210 - Program Expenses:Scholarships","6211 - Program Expenses:Program Entertainment","6230 - Program Expenses:Contributions to other causes","6231 - Program Expenses:Other Program Expenses","6300 - Fundraising Event Expenses","6301 - Fundraising Event Expenses:Fundraising Supplies Expense","6302 - Fundraising Event Expenses:Fundraising Food & Beverage Expenses","6303 - Fundraising Event Expenses:Fundraising Entertainment","6304 - Fundraising Event Expenses:Fundraising Venue Expense","6305 - Fundraising Event Expenses:Other Fundraising Expenses","6800 - Communications & Marketing Expenses","6801 - Communications & Marketing Expenses:Advertisement & Publicity Expenses","6802 - Communications & Marketing Expenses:Photography","6803 - Communications & Marketing Expenses:Web Site / Web Development","7000 - Personnel Expenses","7010 - Personnel Expenses:Contractor Labor","7020 - Personnel Expenses:Professional Fees - Accounting","7030 - Personnel Expenses:Professional Fees - Legal","7100 - Personnel Expenses:Payroll Expenses","7101 - Personnel Expenses:Payroll Expenses:Executive Secretary Wages","7102 - Personnel Expenses:Payroll Expenses:Payroll Tax Expenses","8001 - Building Service Contracts","8002 - Building Repairs","8003 - Building Supplies and Consumables","8100 - Administrative Services","8101 - Administrative Services:Bank Charges & CC Fees","8102 - Administrative Services:Computer / Office Equipment","8103 - Administrative Services:Dues & Subscriptions","8104 - Administrative Services:Office Supplies","8105 - Administrative Services:Postage","8106 - Administrative Services:Software & App Expenses","8110 - Administrative Services:Insurance","8111 - Administrative Services:Insurance:Building Insurance","8112 - Administrative Services:Insurance:Director's Insurance","8113 - Administrative Services:Insurance:Parade Insurance","8120 - Administrative Services:Licenses, Fees, Registrations","8130 - President's Discretionary Fund","8190 - Administrative Services:UBI 990 Tax","8191 - Administrative Services:Penalties","8192 - Administrative Services:Interest Expense","8193 - Administrative Services:Bad Debt","9001 - Uncategorized Expenditure"];
+// ─── SUPABASE ───────────────────────────────────────────────
+const SUPA_URL = 'https://qyoqyeaqacdjstvkonwx.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5b3F5ZWFxYWNkanN0dmtvbnd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU3MTU5NTQsImV4cCI6MjAzMTI5MTk1NH0.NeIbYgqFgp6kc8TTW2sGjRml2DqxMxrDmFDkBIEbNjc';
+const RESEND_KEY = ''; // Set via Admin tab — stored in Supabase cr_settings
+const FROM_EMAIL = 'Rough Riders Check Request <r.conn@tamparoughriders.org>';
 
-const CLASSES = {"Fundraising":["Bar","BBQ Event","Casino Night","Fishing Tournament","Gasparilla After Party","Gasparilla Breakfast","Gasparilla Distance Classic","Gasparilla Pre-Invasion Party","Golf Tournament","Halloween Party","Invasion Boat Event","Mini Clay Shoots","Paws for Patriots","Pub Crawl","Sporting Clay Tournament","St. Pats Brunch","St. Pats Mini Clay Shoot","St. Pats Other","St. Pats Parade Event","St. Pats Post Party","St. Pats Pre Party","Summer Theme Party"],"Program Services":["Artifacts Acquisition","Chasco Fiesta Parade","Childrens Parade","Christmas Parade","Desoto Parade Bradenton","Egmont Key and UT Cannon","Fleet Maintenance Committee","Gasparilla Parade","History Committee","Honor Flight","Honor Guard","Independence Day Parade","John Winter Teddy Bear","Joshua House","Key West Fantasy Fest Parade","Knights Parade","Krag Shoot","Library","Military Ball","Museum","New Member History Tour","Other Program Expenses","Parade other","Photo Committee","Quartermaster","Roosevelt Elementary","Special Olympics","Sponsor Donations and contributions","Springtime Tallahassee Parade","St. Patrick's Day Parade (RR Floats Only)","Strawberry Parade","VA Haley Thanksgiving","Veterans Day Parade","Washington Memorial Day Parade"],"Management & General":["Administration","Building Maintenance and Repairs","Member Services","Small Membership Events"],"Unrelated Business Taxable Income":["Cigar Locker Rentals","Parade Float Locker Rentals"],"Other":["Valentine's Day Party"]};
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
 
-// ---- STORAGE ----
-let requests = JSON.parse(localStorage.getItem('rr_check_requests')||'[]');
-let settings = JSON.parse(localStorage.getItem('rr_check_settings')||'{}');
-let lineItems = [];
+// ─── STATE ──────────────────────────────────────────────────
+let allRequests = [];
+let allActions  = {};   // { request_id: [actions] }
+let qbAccounts  = [];
+let qbClasses   = [];
+let settings    = {};
+let lineItems   = [];
 let currentFilter = 'all';
 let adminUnlocked = false;
+let currentModalId = null;
 
-const DEFAULT_SETTINGS = {
-  adminPw: 'bullyjudge',
-  approvers: {
-    2: {name:'Ed Dunn', email:'ed.dunn@tamparoughriders.org', title:'Treasurer'},
-    3: {name:'Todd Parry', email:'todd.parry@tamparoughriders.org', title:'Secretary'},
-    4: {name:'LT COL Robin Conn', email:'r.conn@tamparoughriders.org', title:'President'}
-  },
-  om: {name:'Office Manager', email:'office@tamparoughriders.org'},
-  resendKey: '',
-  fromEmail: 'r.conn@tamparoughriders.org'
-};
-
-function getSetting(path){
-  const parts = path.split('.');
-  let cur = Object.assign({}, DEFAULT_SETTINGS, settings);
-  // merge nested
-  if(settings.approvers) cur.approvers = Object.assign({}, DEFAULT_SETTINGS.approvers, settings.approvers);
-  if(settings.om) cur.om = Object.assign({}, DEFAULT_SETTINGS.om, settings.om);
-  for(const p of parts){ if(cur===undefined) return undefined; cur = cur[p]; }
-  return cur;
+// ─── BOOT ───────────────────────────────────────────────────
+async function boot() {
+  try {
+    await Promise.all([loadSettings(), loadAccounts(), loadClasses()]);
+    await loadRequests();
+    buildAccountDropdown();
+    buildClassDropdown();
+    updateQCount();
+    document.getElementById('conn-dot').className = 'conn-dot ok';
+    document.getElementById('conn-lbl').textContent = 'Connected';
+  } catch(e) {
+    document.getElementById('conn-dot').className = 'conn-dot err';
+    document.getElementById('conn-lbl').textContent = 'Offline';
+    toast('Could not reach database. ' + e.message, 'warn');
+  }
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  addLI();
 }
 
-function saveSetting(key, val){
-  settings[key] = val;
-  localStorage.setItem('rr_check_settings', JSON.stringify(settings));
+// ─── LOAD DATA ───────────────────────────────────────────────
+async function loadSettings() {
+  const { data, error } = await db.from('cr_settings').select('*');
+  if (error) throw error;
+  settings = {};
+  (data||[]).forEach(r => { settings[r.key] = r.value; });
 }
 
-// ---- INIT DROPDOWNS ----
-function buildDropdowns(){
-  const catSel = document.getElementById('f-category');
-  QB_ACCOUNTS.forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a; opt.textContent = a;
-    catSel.appendChild(opt);
+async function loadAccounts() {
+  const { data, error } = await db.from('cr_accounts').select('*').order('sort_order');
+  if (error) throw error;
+  qbAccounts = data || [];
+}
+
+async function loadClasses() {
+  const { data, error } = await db.from('cr_classes').select('*').order('sort_order');
+  if (error) throw error;
+  qbClasses = data || [];
+}
+
+async function loadRequests() {
+  const { data: reqs, error: e1 } = await db
+    .from('cr_requests').select('*').order('created_at', {ascending: false});
+  if (e1) throw e1;
+  allRequests = reqs || [];
+
+  const { data: acts, error: e2 } = await db
+    .from('cr_actions').select('*').order('created_at', {ascending: true});
+  if (e2) throw e2;
+  allActions = {};
+  (acts||[]).forEach(a => {
+    if (!allActions[a.request_id]) allActions[a.request_id] = [];
+    allActions[a.request_id].push(a);
   });
 
-  const classSel = document.getElementById('f-class');
-  Object.entries(CLASSES).forEach(([grp, items]) => {
+  updateQCount();
+  renderQueue();
+  renderHistory();
+  if (currentModalId) refreshModal(currentModalId);
+}
+
+// ─── DROPDOWNS ───────────────────────────────────────────────
+function buildAccountDropdown() {
+  const sel = document.getElementById('f-account');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select Account —</option>';
+  qbAccounts.forEach(a => {
+    const opt = document.createElement('option');
+    const label = a.account_no ? `${a.account_no} — ${a.name}` : a.name;
+    opt.value = label; opt.textContent = label;
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function buildClassDropdown() {
+  const sel = document.getElementById('f-class');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select Class —</option>';
+  const types = [...new Set(qbClasses.map(c => c.class_type))];
+  types.forEach(t => {
     const og = document.createElement('optgroup');
-    og.label = grp;
-    items.forEach(c => {
+    og.label = t;
+    qbClasses.filter(c => c.class_type === t).forEach(c => {
       const opt = document.createElement('option');
-      opt.value = c; opt.textContent = c;
+      opt.value = c.name; opt.textContent = c.name;
       og.appendChild(opt);
     });
-    classSel.appendChild(og);
+    sel.appendChild(og);
   });
+  if (cur) sel.value = cur;
 }
 
-// ---- TABS ----
-function showTab(name){
-  const tabs = ['submit','queue','history','admin'];
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
-  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', `panel-${tabs[i]}`===`panel-${name}`));
-  if(name==='queue') renderQueue();
-  if(name==='history') renderHistory();
-  if(name==='admin') loadAdminFields();
+// ─── LINE ITEMS ───────────────────────────────────────────────
+function addLI() {
+  lineItems.push({ id: Date.now(), desc: '', date: '', amount: '' });
+  renderLI();
 }
-
-// ---- LINE ITEMS ----
-function addReceiptRow(){
-  const id = Date.now();
-  lineItems.push({id, desc:'', date:'', amount:''});
-  renderReceiptRows();
+function removeLI(id) {
+  lineItems = lineItems.filter(l => l.id !== id);
+  renderLI();
 }
-function removeReceiptRow(id){
-  lineItems = lineItems.filter(li=>li.id!==id);
-  renderReceiptRows();
+function updateLI(id, field, val) {
+  const li = lineItems.find(l => l.id === id);
+  if (li) { li[field] = val; calcTotal(); }
 }
-function renderReceiptRows(){
-  const table = document.getElementById('receipt-table');
-  const header = table.querySelector('.receipt-header');
-  table.innerHTML=''; table.appendChild(header);
-  lineItems.forEach(li=>{
+function calcTotal() {
+  const t = lineItems.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+  document.getElementById('total-disp').textContent = '$' + t.toFixed(2);
+}
+function getTotal() { return lineItems.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0); }
+function renderLI() {
+  const tbl = document.getElementById('li-table');
+  const hdr = tbl.querySelector('.li-head');
+  tbl.innerHTML = ''; tbl.appendChild(hdr);
+  lineItems.forEach(li => {
     const row = document.createElement('div');
-    row.className='receipt-row';
-    row.innerHTML=`<input type="text" placeholder="Description" value="${li.desc}" oninput="updateItem(${li.id},'desc',this.value)" style="border-right:1px solid var(--border)"><input type="date" value="${li.date}" oninput="updateItem(${li.id},'date',this.value)" style="border-right:1px solid var(--border)"><input type="number" min="0" step="0.01" placeholder="0.00" value="${li.amount}" oninput="updateItem(${li.id},'amount',this.value)" style="border-right:1px solid var(--border)"><button class="btn-remove" onclick="removeReceiptRow(${li.id})">×</button>`;
-    table.appendChild(row);
+    row.className = 'li-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Description" value="${esc(li.desc)}" oninput="updateLI(${li.id},'desc',this.value)" style="border-right:1px solid var(--border)">
+      <input type="date" value="${li.date}" oninput="updateLI(${li.id},'date',this.value)" style="border-right:1px solid var(--border)">
+      <input type="number" min="0" step="0.01" placeholder="0.00" value="${li.amount}" oninput="updateLI(${li.id},'amount',this.value)" style="border-right:1px solid var(--border)">
+      <button class="btn-rm" onclick="removeLI(${li.id})">×</button>`;
+    tbl.appendChild(row);
   });
   calcTotal();
 }
-function updateItem(id,field,val){ const item=lineItems.find(li=>li.id===id); if(item){item[field]=val; calcTotal();} }
-function calcTotal(){ const t=lineItems.reduce((s,li)=>s+(parseFloat(li.amount)||0),0); document.getElementById('total-display').textContent='$'+t.toFixed(2); }
-function getTotal(){ return lineItems.reduce((s,li)=>s+(parseFloat(li.amount)||0),0); }
 
-// ---- SUBMIT ----
-function submitRequest(){
-  const submitter=document.getElementById('f-submitter').value.trim();
-  const email=document.getElementById('f-email').value.trim();
-  const chairName=document.getElementById('f-chair-name').value.trim();
-  const chairEmail=document.getElementById('f-chair-email').value.trim();
-  const payee=document.getElementById('f-payee').value.trim();
-  const method=document.getElementById('f-method').value;
-  const category=document.getElementById('f-category').value;
-  const cls=document.getElementById('f-class').value;
-  const purpose=document.getElementById('f-purpose').value.trim();
+// ─── SUBMIT ───────────────────────────────────────────────────
+async function submitRequest() {
+  const name     = v('f-name');
+  const email    = v('f-email');
+  const chairN   = v('f-chair-name');
+  const chairE   = v('f-chair-email');
+  const payee    = v('f-payee');
+  const account  = v('f-account');
+  const cls      = v('f-class');
+  const purpose  = v('f-purpose');
 
-  if(!submitter||!email||!chairName||!chairEmail||!payee||!method||!category||!cls||!purpose){
+  if (!name||!email||!chairN||!chairE||!payee||!account||!cls||!purpose) {
     toast('Please fill in all required fields.','warn'); return;
   }
-  if(lineItems.length===0){ toast('Add at least one line item.','warn'); return; }
-  if(getTotal()<=0){ toast('Total amount must be greater than $0.','warn'); return; }
+  if (!lineItems.length) { toast('Add at least one line item.','warn'); return; }
+  if (getTotal() <= 0)   { toast('Total must be greater than $0.','warn'); return; }
 
-  const ap2 = getSetting('approvers.2') || DEFAULT_SETTINGS.approvers[2];
-  const ap3 = getSetting('approvers.3') || DEFAULT_SETTINGS.approvers[3];
-  const ap4 = getSetting('approvers.4') || DEFAULT_SETTINGS.approvers[4];
-  // build merged
-  const mergedAp = Object.assign({},DEFAULT_SETTINGS.approvers,settings.approvers||{});
+  const ap = getApprovers(chairN, chairE);
+  const id  = 'RR-' + String(Date.now()).slice(-6);
+  const now = new Date().toISOString();
 
-  const id='RR-'+String(Date.now()).slice(-6);
-  const now=new Date();
-  const req={
-    id, submitter, email,
-    phone:document.getElementById('f-phone').value,
-    payee, method,
-    address:document.getElementById('f-address').value,
-    category, class:cls, purpose,
-    notes:document.getElementById('f-notes').value,
-    receipts:document.getElementById('f-receipts').value,
-    lineItems:[...lineItems], total:getTotal(),
-    approvers:[
-      {name:chairName, email:chairEmail, title:'Committee Chair'},
-      {name:mergedAp[2].name, email:mergedAp[2].email, title:'Treasurer'},
-      {name:mergedAp[3].name, email:mergedAp[3].email, title:'Secretary'},
-      {name:mergedAp[4].name, email:mergedAp[4].email, title:'President'}
-    ],
-    currentStep:0, status:'pending',
-    log:[{action:'submitted',actor:submitter,note:'',ts:now.toISOString()}],
-    createdAt:now.toISOString(), updatedAt:now.toISOString()
+  const req = {
+    id,
+    submitter: name, submitter_email: email,
+    submitter_phone: v('f-phone'),
+    chair_name: chairN, chair_email: chairE,
+    payee, address: v('f-address'),
+    qb_account: account, qb_class: cls,
+    purpose, notes: v('f-notes'),
+    receipts: v('f-receipts'),
+    line_items: lineItems.map(li => ({desc:li.desc,date:li.date,amount:parseFloat(li.amount)||0})),
+    total: getTotal(),
+    approvers: ap,
+    current_step: 0, status: 'pending',
+    created_at: now, updated_at: now
   };
 
-  requests.unshift(req);
-  localStorage.setItem('rr_check_requests',JSON.stringify(requests));
-  updateQueueCount();
-  sendApprovalEmail(req, 0);
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submitting…';
+
+  const { error: e1 } = await db.from('cr_requests').insert(req);
+  if (e1) { toast('Error saving request: ' + e1.message, 'warn'); btn.disabled=false; btn.textContent='Submit for Approval →'; return; }
+
+  const { error: e2 } = await db.from('cr_actions').insert({
+    request_id: id, action: 'submitted', actor_name: name, step_index: null, note: ''
+  });
+  if (e2) console.warn('Action log error:', e2.message);
+
+  await sendApprovalEmail(req, 0);
+  await loadRequests();
   clearForm();
-  toast('✓ Request '+id+' submitted! Notification sent to '+chairName+'.');
+  btn.disabled=false; btn.textContent='Submit for Approval →';
+  toast('✓ ' + id + ' submitted — notification sent to ' + chairN + '.');
   showTab('queue');
 }
 
-function clearForm(){
-  ['f-submitter','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id=>document.getElementById(id).value='');
-  ['f-method','f-category','f-class','f-receipts'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
-  lineItems=[]; renderReceiptRows();
+function getApprovers(chairName, chairEmail) {
+  const ap2 = settings['approver_2'] || {name:'Ed Dunn',email:'ed.dunn@tamparoughriders.org',title:'Treasurer'};
+  const ap3 = settings['approver_3'] || {name:'Todd Parry',email:'todd.parry@tamparoughriders.org',title:'Secretary'};
+  const ap4 = settings['approver_4'] || {name:'LT COL Robin Conn',email:'r.conn@tamparoughriders.org',title:'President'};
+  return [
+    {name: chairName, email: chairEmail, title: 'Committee Chair'},
+    {name: ap2.name, email: ap2.email, title: 'Treasurer'},
+    {name: ap3.name, email: ap3.email, title: 'Secretary'},
+    {name: ap4.name, email: ap4.email, title: 'President'}
+  ];
 }
 
-// ---- QUEUE ----
-function updateQueueCount(){
-  const p=requests.filter(r=>r.status==='pending').length;
-  document.getElementById('queue-count').textContent=p;
+function clearForm() {
+  ['f-name','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id => document.getElementById(id).value='');
+  ['f-account','f-class','f-receipts'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  lineItems = []; renderLI(); addLI();
 }
-function filterQueue(btn,filter){
-  currentFilter=filter;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+
+// ─── QUEUE / HISTORY ──────────────────────────────────────────
+function updateQCount() {
+  document.getElementById('qcount').textContent = allRequests.filter(r=>r.status==='pending').length;
+}
+function filterQ(btn, f) {
+  currentFilter = f;
+  document.querySelectorAll('.flt').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   renderQueue();
 }
-function renderQueue(){
-  const list=document.getElementById('queue-list');
-  const filtered=requests.filter(r=>currentFilter==='all'||r.status===currentFilter);
-  if(!filtered.length){ list.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>No requests in this view.</p></div>`; return; }
-  list.innerHTML=filtered.map(r=>reqCard(r)).join('');
+function renderQueue() {
+  const list = document.getElementById('q-list');
+  const items = currentFilter === 'all' ? allRequests : allRequests.filter(r=>r.status===currentFilter);
+  if (!items.length) { list.innerHTML = `<div class="empty"><div class="ico">📋</div><p>No requests in this view.</p></div>`; return; }
+  list.innerHTML = items.map(r => reqCard(r)).join('');
 }
-function renderHistory(){
-  const list=document.getElementById('history-list');
-  if(!requests.length){ list.innerHTML=`<div class="empty-state"><div class="icon">🗂️</div><p>No requests yet.</p></div>`; return; }
-  list.innerHTML=requests.map(r=>reqCard(r)).join('');
+function renderHistory() {
+  const list = document.getElementById('h-list');
+  if (!allRequests.length) { list.innerHTML = `<div class="empty"><div class="ico">🗂️</div><p>No requests yet.</p></div>`; return; }
+  list.innerHTML = allRequests.map(r => reqCard(r)).join('');
 }
 
-function reqCard(r){
-  const pipeline=r.approvers.map((ap,i)=>{
-    let cls='pending';
-    if(r.status==='rejected'&&r.currentStep===i) cls='rejected';
-    else if(i<r.currentStep||r.status==='complete') cls='done';
-    else if(i===r.currentStep&&r.status==='pending') cls='current';
-    const dot=cls==='done'?'✓':cls==='rejected'?'✕':(i+1);
-    const connDone=(i<r.currentStep||r.status==='complete')?' done':'';
-    const conn=i<r.approvers.length-1?`<div class="pip-connector${connDone}"></div>`:'';
-    return `<div class="pip-step"><div class="pip-dot ${cls}">${dot}</div><div class="pip-label">${ap.name.split(' ')[0]}</div></div>${conn}`;
+function reqCard(r) {
+  const aps = r.approvers || [];
+  const pipeline = aps.map((ap, i) => {
+    let cls = 'pending';
+    if (r.status==='rejected' && r.current_step===i) cls = 'rejected';
+    else if (i < r.current_step || r.status==='complete') cls = 'done';
+    else if (i === r.current_step && r.status==='pending') cls = 'current';
+    const dot = cls==='done' ? '✓' : cls==='rejected' ? '✕' : (i+1);
+    const connCls = (i < r.current_step || r.status==='complete') ? ' done' : '';
+    const conn = i < aps.length-1 ? `<div class="pip-conn${connCls}"></div>` : '';
+    return `<div class="pip-step"><div class="pip-dot ${cls}">${dot}</div><div class="pip-lbl">${(ap.name||'').split(' ')[0]}</div></div>${conn}`;
   }).join('');
-  const badgeMap={pending:'badge-pending',complete:'badge-complete',rejected:'badge-rejected'};
-  const statusLabel={pending:`Step ${r.currentStep+1} of 4`,complete:'All Approved',rejected:'Rejected'};
+  const bmap = {pending:'b-pending',complete:'b-complete',rejected:'b-rejected'};
+  const slbl = {pending:`Step ${r.current_step+1} of 4`,complete:'All Approved',rejected:'Rejected'};
   return `<div class="req-card" onclick="openModal('${r.id}')">
-    <div class="req-card-header">
-      <div class="req-card-header-left">
-        <div><div class="req-id">${r.id}</div><div class="req-payee">${r.payee}</div></div>
-        <span class="badge ${badgeMap[r.status]||'badge-pending'}">${statusLabel[r.status]||r.status}</span>
+    <div class="rch">
+      <div class="rch-l">
+        <div><div class="rid">${r.id}</div><div class="rpayee">${esc(r.payee)}</div></div>
+        <span class="badge ${bmap[r.status]||'b-pending'}">${slbl[r.status]||r.status}</span>
       </div>
-      <div class="req-amount">$${r.total.toFixed(2)}</div>
+      <div class="ramt">$${Number(r.total).toFixed(2)}</div>
     </div>
-    <div class="req-card-body">
-      <div class="req-meta">
-        <strong>Submitted by:</strong> ${r.submitter}<br>
-        <strong>Class:</strong> ${r.class||'—'} &nbsp;|&nbsp; <strong>Account:</strong> ${r.category}<br>
-        <strong>Date:</strong> ${new Date(r.createdAt).toLocaleDateString()}
+    <div class="rcb">
+      <div class="rmeta">
+        <strong>Submitted by:</strong> ${esc(r.submitter)}<br>
+        <strong>Class:</strong> ${esc(r.qb_class||'—')} &nbsp;|&nbsp; <strong>Account:</strong> ${esc(r.qb_account)}<br>
+        <strong>Date:</strong> ${new Date(r.created_at).toLocaleDateString()}
       </div>
       <div class="pipeline">${pipeline}</div>
     </div>
   </div>`;
 }
 
-// ---- MODAL ----
-function openModal(id){
-  const r=requests.find(x=>x.id===id); if(!r) return;
-  document.getElementById('modal-payee').textContent=`${r.payee} — $${r.total.toFixed(2)}`;
-  document.getElementById('modal-id').textContent=r.id;
+// ─── MODAL ────────────────────────────────────────────────────
+function openModal(id) {
+  currentModalId = id;
+  renderModal(id);
+  document.getElementById('mbk').classList.add('open');
+}
+function refreshModal(id) { if (document.getElementById('mbk').classList.contains('open')) renderModal(id); }
+function closeModal() { document.getElementById('mbk').classList.remove('open'); currentModalId = null; }
+function closeMBk(e) { if (e.target === document.getElementById('mbk')) closeModal(); }
 
-  const pipeline=r.approvers.map((ap,i)=>{
-    let cls='pending';
-    if(r.status==='rejected'&&r.currentStep===i) cls='rejected';
-    else if(i<r.currentStep||r.status==='complete') cls='done';
-    else if(i===r.currentStep&&r.status==='pending') cls='current';
-    const dot=cls==='done'?'✓':cls==='rejected'?'✕':(i+1);
-    const stepLog=r.log.find(l=>l.step===i&&l.action==='approved');
-    const date=stepLog?new Date(stepLog.ts).toLocaleDateString():'';
-    const connDone=(i<r.currentStep||r.status==='complete')?' done':'';
-    const conn=i<r.approvers.length-1?`<div class="detail-pip-connector${connDone}"></div>`:'';
-    return `<div class="detail-pip-step"><div class="detail-pip-dot ${cls}">${dot}</div><div class="detail-pip-label">${ap.name.split('(')[0].trim()}</div><div class="detail-pip-sublabel">${ap.title}</div>${date?`<div class="detail-pip-sublabel" style="color:var(--success)">${date}</div>`:''}</div>${conn}`;
+function renderModal(id) {
+  const r = allRequests.find(x => x.id === id); if (!r) return;
+  const actions = allActions[id] || [];
+  const aps = r.approvers || [];
+
+  document.getElementById('m-title').textContent = `${r.payee} — $${Number(r.total).toFixed(2)}`;
+  document.getElementById('m-id').textContent = r.id;
+
+  const pipeline = aps.map((ap, i) => {
+    let cls = 'pending';
+    if (r.status==='rejected' && r.current_step===i) cls = 'rejected';
+    else if (i < r.current_step || r.status==='complete') cls = 'done';
+    else if (i === r.current_step && r.status==='pending') cls = 'current';
+    const dot = cls==='done' ? '✓' : cls==='rejected' ? '✕' : (i+1);
+    const stepAct = actions.find(a => a.step_index===i && a.action==='approved');
+    const date = stepAct ? new Date(stepAct.created_at).toLocaleDateString() : '';
+    const connCls = (i < r.current_step || r.status==='complete') ? ' done' : '';
+    const conn = i < aps.length-1 ? `<div class="dpc${connCls}"></div>` : '';
+    return `<div class="dps"><div class="dpd ${cls}">${dot}</div><div class="dplbl">${esc((ap.name||'').split('(')[0].trim())}</div><div class="dpsub">${esc(ap.title||'')}</div>${date?`<div class="dpsub" style="color:var(--success)">${date}</div>`:''}</div>${conn}`;
   }).join('');
 
-  const lines=r.lineItems.map(li=>`<tr><td>${li.desc||'—'}</td><td>${li.date||'—'}</td><td style="text-align:right">$${(parseFloat(li.amount)||0).toFixed(2)}</td></tr>`).join('');
+  const lines = (r.line_items||[]).map(li =>
+    `<tr><td>${esc(li.desc||'—')}</td><td>${li.date||'—'}</td><td style="text-align:right">$${Number(li.amount||0).toFixed(2)}</td></tr>`
+  ).join('');
 
-  const logHtml=r.log.map(entry=>{
-    const cls=entry.action==='approved'?'approved':entry.action==='rejected'?'rejected':'submitted';
-    const icon=entry.action==='approved'?'✓':entry.action==='rejected'?'✕':'↑';
-    const title=entry.action==='submitted'?`Request submitted by ${entry.actor}`:entry.action==='approved'?`Step ${entry.step+1} approved by ${entry.actor}`:`Rejected by ${entry.actor}`;
-    return `<div class="log-entry"><div class="log-dot ${cls}">${icon}</div><div class="log-content"><div class="log-title">${title}</div><div class="log-sub">${new Date(entry.ts).toLocaleString()}</div>${entry.note?`<div class="log-note">💬 ${entry.note}</div>`:''}</div></div>`;
+  const logHtml = actions.map(a => {
+    const cls = a.action==='approved' ? 'approved' : a.action==='rejected' ? 'rejected' : 'submitted';
+    const icon = a.action==='approved' ? '✓' : a.action==='rejected' ? '✕' : '↑';
+    const title = a.action==='submitted' ? `Submitted by ${esc(a.actor_name)}`
+      : a.action==='approved' ? `Step ${a.step_index+1} approved by ${esc(a.actor_name)}`
+      : `Rejected by ${esc(a.actor_name)}`;
+    return `<div class="lent"><div class="ldot ${cls}">${icon}</div><div><div class="ltitle">${title}</div><div class="lsub">${new Date(a.created_at).toLocaleString()}</div>${a.note?`<div class="lnote">💬 ${esc(a.note)}</div>`:''}</div></div>`;
   }).join('');
 
-  const canAct=r.status==='pending';
-  const currentAp=r.approvers[r.currentStep]||{};
-  const actionHtml=canAct?`
-    <div class="action-zone">
-      <h4>Action — Step ${r.currentStep+1}: ${currentAp.name} (${currentAp.title})</h4>
-      <div class="reviewer-select">
-        <label>Acting as:</label>
-        <select id="modal-actor">
-          ${r.approvers.map((ap,i)=>`<option value="${ap.name}" ${i===r.currentStep?'selected':''}>${ap.name} — ${ap.title}</option>`).join('')}
-        </select>
-      </div>
-      <textarea id="modal-note" placeholder="Add a comment or note (optional)..."></textarea>
-      <div class="action-btns">
-        <button class="btn-approve" onclick="approveStep('${r.id}')">✓ Approve</button>
-        <button class="btn-reject" onclick="rejectStep('${r.id}')">✕ Reject</button>
-      </div>
-    </div>`
-  :r.status==='complete'?`<div style="background:var(--success-bg);color:var(--success);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✓ All 4 approvals complete. OK to Pay notice sent to Office Manager.</div>`
-  :`<div style="background:var(--danger-bg);color:var(--danger);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✕ This request was rejected. See notes above.</div>`;
+  const canAct = r.status === 'pending';
+  const curAp  = aps[r.current_step] || {};
+  const actionHtml = canAct
+    ? `<div class="azone">
+        <h4>Action — Step ${r.current_step+1}: ${esc(curAp.name)} (${esc(curAp.title)})</h4>
+        <div style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);margin-bottom:12px">
+          Acting as: <strong>${esc(curAp.name)}</strong> — ${esc(curAp.title)}
+        </div>
+        <textarea id="m-note" placeholder="Add a comment or note (optional)…"></textarea>
+        <div class="abtns">
+          <button class="btn-approve" onclick="doApprove('${r.id}')">✓ Approve</button>
+          <button class="btn-reject"  onclick="doReject('${r.id}')">✕ Reject</button>
+        </div>
+      </div>`
+    : r.status==='complete'
+      ? `<div style="background:var(--success-bg);color:var(--success);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✓ All 4 approvals complete — OK to Pay notice sent to Office Manager.</div>`
+      : `<div style="background:var(--danger-bg);color:var(--danger);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✕ This request was rejected.</div>`;
 
-  document.getElementById('modal-body').innerHTML=`
-    <div class="detail-pipeline">${pipeline}</div>
-    <div class="detail-grid">
-      <div class="detail-item"><label>Submitted by</label><p>${r.submitter}</p></div>
-      <div class="detail-item"><label>Email</label><p>${r.email}</p></div>
-      <div class="detail-item"><label>Payment Method</label><p>${r.method}</p></div>
-      <div class="detail-item"><label>QB Account</label><p>${r.category}</p></div>
-      <div class="detail-item"><label>Class / Project</label><p>${r.class||'—'}</p></div>
-      <div class="detail-item"><label>Receipts</label><p>${r.receipts||'—'}</p></div>
-      ${r.address?`<div class="detail-item full"><label>Payee Address</label><p>${r.address}</p></div>`:''}
-      <div class="detail-item full"><label>Purpose</label><p>${r.purpose}</p></div>
-      ${r.notes?`<div class="detail-item full"><label>Additional Notes</label><p>${r.notes}</p></div>`:''}
+  document.getElementById('m-body').innerHTML = `
+    <div class="dpipe">${pipeline}</div>
+    <div class="dgrid">
+      <div class="di"><label>Submitted by</label><p>${esc(r.submitter)}</p></div>
+      <div class="di"><label>Email</label><p>${esc(r.submitter_email)}</p></div>
+      <div class="di"><label>QB Account</label><p>${esc(r.qb_account)}</p></div>
+      <div class="di"><label>Class / Project</label><p>${esc(r.qb_class||'—')}</p></div>
+      ${r.address?`<div class="di full"><label>Payee Address</label><p>${esc(r.address)}</p></div>`:''}
+      <div class="di full"><label>Purpose</label><p>${esc(r.purpose)}</p></div>
+      ${r.receipts?`<div class="di"><label>Receipts</label><p>${esc(r.receipts)}</p></div>`:''}
+      ${r.notes?`<div class="di full"><label>Notes</label><p>${esc(r.notes)}</p></div>`:''}
     </div>
-    <table class="detail-table">
+    <table class="dtbl">
       <thead><tr><th>Description</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>${lines}</tbody>
-      <tfoot><tr class="detail-total-row"><td colspan="2">Total</td><td style="text-align:right">$${r.total.toFixed(2)}</td></tr></tfoot>
+      <tfoot><tr class="dttl"><td colspan="2">Total</td><td style="text-align:right">$${Number(r.total).toFixed(2)}</td></tr></tfoot>
     </table>
-    <div class="approval-log"><h4>Approval History</h4>${logHtml}</div>
+    <div class="alog"><h4>Approval History</h4>${logHtml||'<p style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-muted)">No actions yet.</p>'}</div>
     ${actionHtml}`;
-
-  document.getElementById('modal-backdrop').classList.add('open');
 }
 
-function approveStep(id){
-  const r=requests.find(x=>x.id===id); if(!r||r.status!=='pending') return;
-  const actor=document.getElementById('modal-actor')?.value||r.approvers[r.currentStep].name;
-  const note=document.getElementById('modal-note')?.value.trim()||'';
-  r.log.push({action:'approved',actor,step:r.currentStep,note,ts:new Date().toISOString()});
-  const justCompleted=r.currentStep;
-  r.currentStep++;
-  if(r.currentStep>=r.approvers.length){
-    r.status='complete';
-    r.updatedAt=new Date().toISOString();
-    localStorage.setItem('rr_check_requests',JSON.stringify(requests));
-    updateQueueCount();
-    sendOkToPayEmail(r);
-    toast('✓ All 4 approvals done for '+r.id+'! OK to Pay email sent to Office Manager.');
+// ─── APPROVE / REJECT ─────────────────────────────────────────
+async function doApprove(id) {
+  const r = allRequests.find(x=>x.id===id); if (!r||r.status!=='pending') return;
+  const note = document.getElementById('m-note')?.value.trim() || '';
+  const stepDone = r.current_step;
+  const nextStep = stepDone + 1;
+  const isLast   = nextStep >= (r.approvers||[]).length;
+  const newStatus = isLast ? 'complete' : 'pending';
+  const now = new Date().toISOString();
+
+  const { error: e1 } = await db.from('cr_actions').insert({
+    request_id: id, action: 'approved',
+    actor_name: r.approvers[stepDone]?.name || 'Unknown',
+    step_index: stepDone, note
+  });
+  if (e1) { toast('Error saving action: ' + e1.message,'warn'); return; }
+
+  const { error: e2 } = await db.from('cr_requests').update({
+    current_step: nextStep, status: newStatus, updated_at: now
+  }).eq('id', id);
+  if (e2) { toast('Error updating request: ' + e2.message,'warn'); return; }
+
+  await loadRequests();
+
+  if (isLast) {
+    const updated = allRequests.find(x=>x.id===id);
+    if (updated) await sendOkToPayEmail(updated);
+    toast('✓ All 4 approvals complete for ' + id + '! OK to Pay email sent.');
   } else {
-    r.updatedAt=new Date().toISOString();
-    localStorage.setItem('rr_check_requests',JSON.stringify(requests));
-    updateQueueCount();
-    sendApprovalEmail(r, r.currentStep);
-    toast('✓ Step '+(r.currentStep)+' approved. Notification sent to '+r.approvers[r.currentStep].name+'.');
+    const updated = allRequests.find(x=>x.id===id);
+    if (updated) await sendApprovalEmail(updated, nextStep);
+    toast('✓ Step ' + (stepDone+1) + ' approved — notification sent to ' + (r.approvers[nextStep]?.name||'next approver') + '.');
   }
-  closeModal();
-  setTimeout(()=>openModal(id),200);
 }
 
-function rejectStep(id){
-  const r=requests.find(x=>x.id===id); if(!r||r.status!=='pending') return;
-  const actor=document.getElementById('modal-actor')?.value||r.approvers[r.currentStep].name;
-  const note=document.getElementById('modal-note')?.value.trim()||'';
-  r.log.push({action:'rejected',actor,step:r.currentStep,note,ts:new Date().toISOString()});
-  r.status='rejected'; r.updatedAt=new Date().toISOString();
-  localStorage.setItem('rr_check_requests',JSON.stringify(requests));
-  updateQueueCount();
-  sendRejectionEmail(r, actor, note);
-  toast('✕ Request '+r.id+' rejected. Submitter notified.','warn');
-  closeModal();
-  setTimeout(()=>openModal(id),200);
+async function doReject(id) {
+  const r = allRequests.find(x=>x.id===id); if (!r||r.status!=='pending') return;
+  const note = document.getElementById('m-note')?.value.trim() || '';
+  const now  = new Date().toISOString();
+
+  const { error: e1 } = await db.from('cr_actions').insert({
+    request_id: id, action: 'rejected',
+    actor_name: r.approvers[r.current_step]?.name || 'Unknown',
+    step_index: r.current_step, note
+  });
+  if (e1) { toast('Error: ' + e1.message,'warn'); return; }
+
+  const { error: e2 } = await db.from('cr_requests').update({
+    status: 'rejected', updated_at: now
+  }).eq('id', id);
+  if (e2) { toast('Error: ' + e2.message,'warn'); return; }
+
+  await loadRequests();
+  await sendRejectionEmail(r, r.approvers[r.current_step]?.name||'Unknown', note);
+  toast('✕ Request ' + id + ' rejected — submitter notified.', 'warn');
 }
 
-function closeModal(){ document.getElementById('modal-backdrop').classList.remove('open'); }
-function closeModalOutside(e){ if(e.target===document.getElementById('modal-backdrop')) closeModal(); }
-
-// ---- ADMIN ----
-function checkAdminPw(){
-  const pw=document.getElementById('admin-pw-input').value;
-  const stored=settings.adminPw||DEFAULT_SETTINGS.adminPw;
-  if(pw===stored){
-    adminUnlocked=true;
-    document.getElementById('admin-lock-row').style.display='none';
-    document.getElementById('admin-pw-err').style.display='none';
-    document.getElementById('admin-content').style.display='block';
+// ─── ADMIN ────────────────────────────────────────────────────
+async function checkPw() {
+  const entered = document.getElementById('adm-pw').value;
+  const stored  = settings['admin_pw'] || 'bullyjudge';
+  if (entered === stored) {
+    adminUnlocked = true;
+    document.getElementById('lock-row').style.display = 'none';
+    document.getElementById('pw-err').style.display   = 'none';
+    document.getElementById('adm-content').style.display = 'block';
     loadAdminFields();
   } else {
-    document.getElementById('admin-pw-err').textContent='Incorrect password.';
-    document.getElementById('admin-pw-err').style.display='block';
+    document.getElementById('pw-err').textContent = 'Incorrect password.';
+    document.getElementById('pw-err').style.display = 'block';
   }
 }
-function loadAdminFields(){
-  if(!adminUnlocked) return;
-  const mergedAp=Object.assign({},DEFAULT_SETTINGS.approvers,settings.approvers||{});
-  [2,3,4].forEach(n=>{
-    const ap=mergedAp[n]||{};
-    document.getElementById('a-name'+n).value=ap.name||'';
-    document.getElementById('a-email'+n).value=ap.email||'';
+
+function loadAdminFields() {
+  if (!adminUnlocked) return;
+  [2,3,4].forEach(n => {
+    const s = settings['approver_'+n] || {};
+    document.getElementById('a-n'+n).value = s.name  || '';
+    document.getElementById('a-e'+n).value = s.email || '';
   });
-  const om=Object.assign({},DEFAULT_SETTINGS.om,settings.om||{});
-  document.getElementById('a-om-name').value=om.name||'';
-  document.getElementById('a-om-email').value=om.email||'';
-  const rk=settings.resendKey||'';
-  document.getElementById('a-resend-key').value=rk;
-}
-function saveApprover(n){
-  const name=document.getElementById('a-name'+n).value.trim();
-  const email=document.getElementById('a-email'+n).value.trim();
-  if(!name||!email){ toast('Enter both name and email.','warn'); return; }
-  if(!settings.approvers) settings.approvers={};
-  const titles={2:'Treasurer',3:'Secretary',4:'President'};
-  settings.approvers[n]={name,email,title:titles[n]};
-  localStorage.setItem('rr_check_settings',JSON.stringify(settings));
-  toast('✓ Step '+n+' approver saved: '+name);
-}
-function saveOM(){
-  const name=document.getElementById('a-om-name').value.trim();
-  const email=document.getElementById('a-om-email').value.trim();
-  if(!name||!email){ toast('Enter both name and email.','warn'); return; }
-  settings.om={name,email};
-  localStorage.setItem('rr_check_settings',JSON.stringify(settings));
-  toast('✓ Office Manager saved: '+name+' <'+email+'>');
-}
-function saveResendKey(){
-  const key=document.getElementById('a-resend-key').value.trim();
-  settings.resendKey=key;
-  localStorage.setItem('rr_check_settings',JSON.stringify(settings));
-  toast('✓ Resend API key saved.');
-}
-function changeAdminPw(){
-  const pw=document.getElementById('a-new-pw').value;
-  if(pw.length<4){ toast('Password must be at least 4 characters.','warn'); return; }
-  settings.adminPw=pw;
-  localStorage.setItem('rr_check_settings',JSON.stringify(settings));
-  document.getElementById('a-new-pw').value='';
-  toast('✓ Admin password updated.');
+  const om = settings['office_mgr'] || {};
+  document.getElementById('a-om-n').value = om.name  || '';
+  document.getElementById('a-om-e').value = om.email || '';
+  document.getElementById('a-rk').value   = settings['resend_key'] || '';
+  renderAccountEditor();
+  renderClassEditor();
 }
 
-// ---- EMAIL via Resend ----
-async function callResend(to, subject, html){
-  const key=settings.resendKey||'';
-  if(!key){ console.log('[Email] No Resend key set. Would send to:',to,'Subject:',subject); return {ok:false,reason:'no_key'}; }
+async function saveSetting(key, value) {
+  const { error } = await db.from('cr_settings').upsert({key, value});
+  if (error) throw error;
+  settings[key] = value;
+}
+
+async function saveApprover(n) {
+  const name  = document.getElementById('a-n'+n).value.trim();
+  const email = document.getElementById('a-e'+n).value.trim();
+  if (!name||!email) { toast('Enter both name and email.','warn'); return; }
+  const titles = {2:'Treasurer',3:'Secretary',4:'President'};
   try {
-    const res=await fetch('https://api.resend.com/emails',{
+    await saveSetting('approver_'+n, {name,email,title:titles[n]});
+    toast('✓ Step '+n+' approver saved.');
+  } catch(e) { toast('Error: '+e.message,'warn'); }
+}
+
+async function saveOM() {
+  const name  = document.getElementById('a-om-n').value.trim();
+  const email = document.getElementById('a-om-e').value.trim();
+  if (!name||!email) { toast('Enter both name and email.','warn'); return; }
+  try {
+    await saveSetting('office_mgr', {name,email});
+    toast('✓ Office Manager saved.');
+  } catch(e) { toast('Error: '+e.message,'warn'); }
+}
+
+async function saveResendKey() {
+  const key = document.getElementById('a-rk').value.trim();
+  try {
+    await saveSetting('resend_key', key);
+    toast('✓ Resend API key saved.');
+  } catch(e) { toast('Error: '+e.message,'warn'); }
+}
+
+async function changePw() {
+  const pw = document.getElementById('a-newpw').value;
+  if (pw.length < 4) { toast('Password must be at least 4 characters.','warn'); return; }
+  try {
+    await saveSetting('admin_pw', pw);
+    document.getElementById('a-newpw').value = '';
+    toast('✓ Admin password updated.');
+  } catch(e) { toast('Error: '+e.message,'warn'); }
+}
+
+// ─── ACCOUNT EDITOR ──────────────────────────────────────────
+function renderAccountEditor() {
+  const el = document.getElementById('acct-editor');
+  el.innerHTML = qbAccounts.map(a => `
+    <div class="le-row">
+      <input type="text" value="${esc(a.name)}" onchange="updateAccount(${a.id},'name',this.value)">
+      <input type="text" class="le-acct" value="${esc(a.account_no||'')}" onchange="updateAccount(${a.id},'account_no',this.value)" placeholder="Acct #">
+      <button class="le-rm" onclick="deleteAccount(${a.id})">×</button>
+    </div>`).join('');
+}
+
+async function updateAccount(id, field, val) {
+  const { error } = await db.from('cr_accounts').update({[field]: val || null}).eq('id', id);
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  const item = qbAccounts.find(a => a.id === id);
+  if (item) item[field] = val;
+  buildAccountDropdown();
+}
+
+async function deleteAccount(id) {
+  if (!confirm('Remove this account from the list?')) return;
+  const { error } = await db.from('cr_accounts').delete().eq('id', id);
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  qbAccounts = qbAccounts.filter(a => a.id !== id);
+  renderAccountEditor();
+  buildAccountDropdown();
+  toast('Account removed.');
+}
+
+async function addAccount() {
+  const name = document.getElementById('new-acct-name').value.trim();
+  const no   = document.getElementById('new-acct-no').value.trim();
+  if (!name) { toast('Enter an account name.','warn'); return; }
+  const maxOrder = qbAccounts.reduce((m,a) => Math.max(m, a.sort_order||0), 0);
+  const { data, error } = await db.from('cr_accounts').insert({
+    name, account_no: no||null, sort_order: maxOrder+1
+  }).select().single();
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  qbAccounts.push(data);
+  document.getElementById('new-acct-name').value = '';
+  document.getElementById('new-acct-no').value   = '';
+  renderAccountEditor();
+  buildAccountDropdown();
+  toast('✓ Account added.');
+}
+
+// ─── CLASS EDITOR ────────────────────────────────────────────
+function renderClassEditor() {
+  const el = document.getElementById('class-editor');
+  const typeOptions = ['Fundraising','Program Services','Management & General','Unrelated Business Taxable Income','Other']
+    .map(t => `<option value="${t}">`).join('');
+  el.innerHTML = qbClasses.map(c => `
+    <div class="le-row">
+      <input type="text" value="${esc(c.name)}" onchange="updateClass(${c.id},'name',this.value)">
+      <input type="text" class="le-type" value="${esc(c.class_type)}" list="type-list-${c.id}" onchange="updateClass(${c.id},'class_type',this.value)">
+      <datalist id="type-list-${c.id}">${typeOptions}</datalist>
+      <button class="le-rm" onclick="deleteClass(${c.id})">×</button>
+    </div>`).join('');
+}
+
+async function updateClass(id, field, val) {
+  const { error } = await db.from('cr_classes').update({[field]: val}).eq('id', id);
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  const item = qbClasses.find(c => c.id === id);
+  if (item) item[field] = val;
+  buildClassDropdown();
+}
+
+async function deleteClass(id) {
+  if (!confirm('Remove this class from the list?')) return;
+  const { error } = await db.from('cr_classes').delete().eq('id', id);
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  qbClasses = qbClasses.filter(c => c.id !== id);
+  renderClassEditor();
+  buildClassDropdown();
+  toast('Class removed.');
+}
+
+async function addClass() {
+  const name = document.getElementById('new-class-name').value.trim();
+  const type = document.getElementById('new-class-type').value;
+  if (!name) { toast('Enter a class name.','warn'); return; }
+  const maxOrder = qbClasses.reduce((m,c) => Math.max(m, c.sort_order||0), 0);
+  const { data, error } = await db.from('cr_classes').insert({
+    name, class_type: type, sort_order: maxOrder+1
+  }).select().single();
+  if (error) { toast('Error: '+error.message,'warn'); return; }
+  qbClasses.push(data);
+  document.getElementById('new-class-name').value = '';
+  renderClassEditor();
+  buildClassDropdown();
+  toast('✓ Class added.');
+}
+
+// ─── EMAIL ───────────────────────────────────────────────────
+function getResendKey() { return settings['resend_key'] || ''; }
+
+async function callResend(to, subject, html) {
+  const key = getResendKey();
+  if (!key) { console.log('[Email] No key. To:', to, 'Subj:', subject); return {ok:false,reason:'no_key'}; }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body:JSON.stringify({from:'Rough Riders Check Request <r.conn@tamparoughriders.org>',to:[to],subject,html})
+      body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html })
     });
-    const data=await res.json();
-    return {ok:res.ok, data};
-  } catch(e){ return {ok:false,error:e.message}; }
+    return { ok: res.ok, data: await res.json() };
+  } catch(e) { return {ok:false,error:e.message}; }
 }
 
-function reqSummaryHtml(r){
-  const lines=r.lineItems.map(li=>`<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${li.desc||'—'}</td><td style="padding:6px 12px;border-bottom:1px solid #eee">${li.date||'—'}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">$${(parseFloat(li.amount)||0).toFixed(2)}</td></tr>`).join('');
-  return `<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;margin:12px 0">
-    <thead><tr style="background:#f5f3ec"><th style="padding:7px 12px;text-align:left">Description</th><th style="padding:7px 12px;text-align:left">Date</th><th style="padding:7px 12px;text-align:right">Amount</th></tr></thead>
-    <tbody>${lines}</tbody>
-    <tfoot><tr style="background:#fdf5dc;font-weight:bold"><td colspan="2" style="padding:8px 12px">Total</td><td style="padding:8px 12px;text-align:right">$${r.total.toFixed(2)}</td></tr></tfoot>
-  </table>`;
-}
-
-function emailWrapper(content){
+function wrap(content) {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#faf8f3;font-family:Georgia,serif">
   <div style="max-width:600px;margin:24px auto;background:white;border-radius:8px;overflow:hidden;border:1px solid #ddd">
     <div style="background:#1a2744;padding:18px 24px;border-bottom:3px solid #c9a227">
       <h1 style="color:white;font-size:17px;margin:0">⚔️ Check Request System</h1>
-      <p style="color:#b0bcd4;font-family:Arial,sans-serif;font-size:12px;margin:4px 0 0;text-transform:uppercase;letter-spacing:.05em">1st U.S. Volunteer Cavalry Regiment — Rough Riders, Inc.</p>
+      <p style="color:#b0bcd4;font-family:Arial,sans-serif;font-size:11px;margin:4px 0 0;text-transform:uppercase;letter-spacing:.05em">1st U.S. Volunteer Cavalry Regiment — Rough Riders, Inc.</p>
     </div>
     <div style="padding:24px">${content}</div>
-    <div style="background:#f5f3ec;padding:12px 24px;font-family:Arial,sans-serif;font-size:11px;color:#999;border-top:1px solid #e0dbd0">This is an automated message from the Rough Riders Check Request System. Do not reply to this email.</div>
+    <div style="background:#f5f3ec;padding:10px 24px;font-family:Arial,sans-serif;font-size:11px;color:#999;border-top:1px solid #e0dbd0">Automated message — do not reply.</div>
   </div></body></html>`;
 }
 
-async function sendApprovalEmail(r, stepIndex){
-  const ap=r.approvers[stepIndex];
-  if(!ap) return;
-  const subject=`[Action Required] Check Request ${r.id} — Approval Step ${stepIndex+1} of 4`;
-  const html=emailWrapper(`
-    <h2 style="color:#1a2744;font-size:16px;margin:0 0 4px">Approval Request — Step ${stepIndex+1} of 4</h2>
-    <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 18px">You are the <strong>${ap.title}</strong> for this request.</p>
-    <table style="width:100%;font-family:Arial,sans-serif;font-size:13px;margin-bottom:16px">
-      <tr><td style="color:#777;padding:4px 0;width:140px">Request ID:</td><td><strong>${r.id}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Payee:</td><td><strong>${r.payee}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Amount:</td><td><strong>$${r.total.toFixed(2)}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">QB Account:</td><td>${r.category}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Class:</td><td>${r.class||'—'}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Submitted by:</td><td>${r.submitter} &lt;${r.email}&gt;</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Purpose:</td><td>${r.purpose}</td></tr>
-    </table>
-    ${reqSummaryHtml(r)}
-    <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin-top:16px">Please log in to the Check Request System to approve or reject this request.</p>
-  `);
-  const result=await callResend(ap.email, subject, html);
-  if(!result.ok && result.reason!=='no_key') console.warn('[Email] Send failed:',result);
+function summaryTable(r) {
+  const rows = (r.line_items||[]).map(li =>
+    `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px">${esc(li.desc||'—')}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px">${li.date||'—'}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px;text-align:right">$${Number(li.amount||0).toFixed(2)}</td></tr>`
+  ).join('');
+  return `<table style="width:100%;border-collapse:collapse;margin:12px 0">
+    <thead><tr style="background:#f5f3ec"><th style="padding:7px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Description</th><th style="padding:7px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Date</th><th style="padding:7px 10px;text-align:right;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Amount</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr style="background:#fdf5dc;font-weight:bold"><td colspan="2" style="padding:8px 10px;font-family:Arial,sans-serif;font-size:13px">Total</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:13px;text-align:right">$${Number(r.total).toFixed(2)}</td></tr></tfoot>
+  </table>`;
 }
 
-async function sendOkToPayEmail(r){
-  const om=Object.assign({},DEFAULT_SETTINGS.om,settings.om||{});
-  if(!om.email) return;
-  const subject=`✓ OK TO PAY — Check Request ${r.id} — $${r.total.toFixed(2)} to ${r.payee}`;
-  const approvalLog=r.log.filter(l=>l.action==='approved').map(l=>`<tr><td style="padding:5px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px">Step ${l.step+1} — ${r.approvers[l.step]?.title||''}</td><td style="padding:5px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px">${l.actor}</td><td style="padding:5px 10px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:13px">${new Date(l.ts).toLocaleString()}</td></tr>`).join('');
-  const html=emailWrapper(`
+function infoTable(rows) {
+  return `<table style="width:100%;font-family:Arial,sans-serif;font-size:13px;margin-bottom:16px">${
+    rows.map(([l,v]) => v ? `<tr><td style="color:#777;padding:4px 0;width:150px;vertical-align:top">${l}:</td><td>${v}</td></tr>` : '').join('')
+  }</table>`;
+}
+
+async function sendApprovalEmail(r, stepIdx) {
+  const ap = (r.approvers||[])[stepIdx]; if (!ap?.email) return;
+  const subj = `[Action Required] Check Request ${r.id} — Step ${stepIdx+1} of 4`;
+  const html = wrap(`
+    <h2 style="color:#1a2744;font-size:16px;margin:0 0 4px">Approval Request — Step ${stepIdx+1} of 4</h2>
+    <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 16px">You are the <strong>${esc(ap.title)}</strong> for this request.</p>
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)]])}
+    ${summaryTable(r)}
+    <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin-top:14px">Log in to the Check Request System to approve or reject this request.</p>`);
+  await callResend(ap.email, subj, html);
+}
+
+async function sendOkToPayEmail(r) {
+  const om = settings['office_mgr'] || {email:'office@tamparoughriders.org'};
+  if (!om.email) return;
+  const acts = allActions[r.id] || [];
+  const apLog = acts.filter(a=>a.action==='approved').map(a =>
+    `<tr><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">Step ${a.step_index+1} — ${esc((r.approvers||[])[a.step_index]?.title||'')}</td><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">${esc(a.actor_name)}</td><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">${new Date(a.created_at).toLocaleString()}</td></tr>`
+  ).join('');
+  const subj = `✓ OK TO PAY — ${r.id} — $${Number(r.total).toFixed(2)} to ${r.payee}`;
+  const html = wrap(`
     <div style="background:#e8f5ee;border:1px solid #a3d9b9;border-radius:6px;padding:14px 18px;margin-bottom:20px">
-      <strong style="font-family:Arial,sans-serif;font-size:15px;color:#2a7a4f">✓ All 4 approvals received — OK to issue payment</strong>
+      <strong style="font-family:Arial,sans-serif;font-size:15px;color:#2a7a4f">✓ All 4 approvals received — OK to issue payment by check</strong>
     </div>
-    <table style="width:100%;font-family:Arial,sans-serif;font-size:13px;margin-bottom:16px">
-      <tr><td style="color:#777;padding:4px 0;width:140px">Request ID:</td><td><strong>${r.id}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Payee:</td><td><strong>${r.payee}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Amount:</td><td><strong style="font-size:16px">$${r.total.toFixed(2)}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Payment Method:</td><td>${r.method}</td></tr>
-      ${r.address?`<tr><td style="color:#777;padding:4px 0">Payee Address:</td><td>${r.address}</td></tr>`:''}
-      <tr><td style="color:#777;padding:4px 0">QB Account:</td><td>${r.category}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Class:</td><td>${r.class||'—'}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Submitted by:</td><td>${r.submitter} &lt;${r.email}&gt;</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Purpose:</td><td>${r.purpose}</td></tr>
-      ${r.notes?`<tr><td style="color:#777;padding:4px 0">Notes:</td><td>${r.notes}</td></tr>`:''}
-    </table>
-    ${reqSummaryHtml(r)}
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Amount',`<strong style="font-size:16px">$${Number(r.total).toFixed(2)}</strong>`],['Payee Address',esc(r.address||'—')],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Notes',esc(r.notes||'')]])}
+    ${summaryTable(r)}
     <h4 style="font-family:Arial,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#777;margin:16px 0 8px">Approval Chain</h4>
-    <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f5f3ec"><th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Step</th><th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Approver</th><th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Date / Time</th></tr></thead><tbody>${approvalLog}</tbody></table>
-  `);
-  const result=await callResend(om.email, subject, html);
-  if(!result.ok && result.reason!=='no_key') console.warn('[OKtoPay email] Send failed:',result);
+    <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f5f3ec">
+      <th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Step</th>
+      <th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Approver</th>
+      <th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Timestamp</th>
+    </tr></thead><tbody>${apLog}</tbody></table>`);
+  await callResend(om.email, subj, html);
 }
 
-async function sendRejectionEmail(r, rejector, note){
-  if(!r.email) return;
-  const subject=`[Rejected] Check Request ${r.id} — ${r.payee} $${r.total.toFixed(2)}`;
-  const html=emailWrapper(`
+async function sendRejectionEmail(r, rejector, note) {
+  if (!r.submitter_email) return;
+  const subj = `[Rejected] Check Request ${r.id} — ${r.payee} $${Number(r.total).toFixed(2)}`;
+  const html = wrap(`
     <div style="background:#fdecea;border:1px solid #f5b8b2;border-radius:6px;padding:14px 18px;margin-bottom:20px">
       <strong style="font-family:Arial,sans-serif;font-size:15px;color:#c0392b">✕ Your check request was not approved</strong>
     </div>
-    <table style="width:100%;font-family:Arial,sans-serif;font-size:13px;margin-bottom:16px">
-      <tr><td style="color:#777;padding:4px 0;width:140px">Request ID:</td><td><strong>${r.id}</strong></td></tr>
-      <tr><td style="color:#777;padding:4px 0">Payee:</td><td>${r.payee}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Amount:</td><td>$${r.total.toFixed(2)}</td></tr>
-      <tr><td style="color:#777;padding:4px 0">Rejected by:</td><td>${rejector} — Step ${r.currentStep+1}</td></tr>
-      ${note?`<tr><td style="color:#777;padding:4px 0">Reason:</td><td><strong>${note}</strong></td></tr>`:''}
-    </table>
-    <p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Please contact the approver for clarification, or resubmit with corrections.</p>
-  `);
-  await callResend(r.email, subject, html);
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',esc(r.payee)],['Amount',`$${Number(r.total).toFixed(2)}`],['Rejected by',`${esc(rejector)} — Step ${r.current_step+1}`],['Reason',note?`<strong>${esc(note)}</strong>`:'(no reason given)']])}
+    <p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Please contact the approver for clarification, or resubmit with corrections.</p>`);
+  await callResend(r.submitter_email, subj, html);
 }
 
-async function sendTestEmail(){
-  const to=document.getElementById('test-email-addr').value.trim();
-  if(!to){ toast('Enter a test email address.','warn'); return; }
-  const html=emailWrapper(`<h2 style="color:#1a2744;font-size:16px">Test Email</h2><p style="font-family:Arial,sans-serif;font-size:13px;color:#555">This is a test message from the Rough Riders Check Request System. Email is configured correctly!</p>`);
-  const result=await callResend(to,'[Test] Rough Riders Check Request System',html);
-  if(result.reason==='no_key') toast('No Resend API key saved yet.','warn');
-  else if(result.ok) toast('✓ Test email sent to '+to);
-  else toast('Send failed — check your API key.','warn');
+async function sendTest() {
+  const to = document.getElementById('test-addr').value.trim();
+  if (!to) { toast('Enter a test email address.','warn'); return; }
+  const html = wrap(`<h2 style="color:#1a2744;font-size:16px">Test Email</h2><p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Rough Riders Check Request System email is configured correctly!</p>`);
+  const r = await callResend(to, '[Test] Rough Riders Check Request System', html);
+  if (r.reason==='no_key') toast('No Resend API key configured.','warn');
+  else if (r.ok) toast('✓ Test email sent to ' + to);
+  else toast('Send failed — check API key.','warn');
 }
 
-// ---- TOAST ----
-function toast(msg,type){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.style.background=type==='warn'?'#7a2020':'var(--navy)';
+// ─── TABS ────────────────────────────────────────────────────
+function showTab(name) {
+  const tabs = ['submit','queue','history','admin'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', `panel-${tabs[i]}`===`panel-${name}`));
+  if (name==='queue') renderQueue();
+  if (name==='history') renderHistory();
+  if (name==='admin' && adminUnlocked) loadAdminFields();
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function v(id) { return (document.getElementById(id)?.value||'').trim(); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type==='warn' ? '#7a2020' : 'var(--navy)';
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),3800);
+  setTimeout(() => t.classList.remove('show'), 4000);
 }
 
-// ---- BOOT ----
-document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
-buildDropdowns();
-addReceiptRow();
-updateQueueCount();
+boot();
 </script>
 </body>
 </html>
