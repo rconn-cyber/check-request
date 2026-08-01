@@ -1111,40 +1111,54 @@ async function doApprove(id) {
     if (!acct || !cls) {
       toast('Please select a QB Account and Class before approving.', 'warn'); return;
     }
-    // Save coding to the request
     const { error: eCode } = await db.from('cr_requests').update({
       qb_account: acct, qb_class: cls
     }).eq('id', id);
     if (eCode) { toast('Error saving QB coding: ' + eCode.message, 'warn'); return; }
-    r.qb_account = acct; r.qb_class = cls; // update local state too
+    r.qb_account = acct; r.qb_class = cls;
   }
-  const nextStep = stepDone + 1;
-  const isLast   = nextStep >= (r.approvers||[]).length;
-  const newStatus = isLast ? 'complete' : 'pending';
-  const now = new Date().toISOString();
 
+  const nextStep  = stepDone + 1;
+  const isLast    = nextStep >= (r.approvers||[]).length;
+  const newStatus = isLast ? 'complete' : 'pending';
+  const now       = new Date().toISOString();
+
+  // Save action log
   const { error: e1 } = await db.from('cr_actions').insert({
     request_id: id, action: 'approved',
     actor_name: r.approvers[stepDone]?.name || 'Unknown',
     step_index: stepDone, note
   });
-  if (e1) { toast('Error saving action: ' + e1.message,'warn'); return; }
+  if (e1) { toast('Error saving action: ' + e1.message, 'warn'); return; }
 
+  // Advance step
   const { error: e2 } = await db.from('cr_requests').update({
     current_step: nextStep, status: newStatus, updated_at: now
   }).eq('id', id);
-  if (e2) { toast('Error updating request: ' + e2.message,'warn'); return; }
+  if (e2) { toast('Error updating request: ' + e2.message, 'warn'); return; }
 
+  // Reload and close modal first so user sees the update
   await loadRequests();
+  closeModal();
 
+  // Send next notification
   if (isLast) {
     const updated = allRequests.find(x=>x.id===id);
-    if (updated) await sendOkToPayEmail(updated);
-    toast('✓ All 4 approvals complete for ' + id + '! OK to Pay email sent.');
+    if (updated) {
+      const emailResult = await sendOkToPayEmail(updated);
+      toast('✓ All 4 approvals complete for ' + id + '! OK to Pay notice sent.');
+    }
   } else {
     const updated = allRequests.find(x=>x.id===id);
-    if (updated) await sendApprovalEmail(updated, nextStep);
-    toast('✓ Step ' + (stepDone+1) + ' approved — notification sent to ' + (r.approvers[nextStep]?.name||'next approver') + '.');
+    const nextAp  = updated?.approvers?.[nextStep];
+    if (updated) {
+      const emailResult = await sendApprovalEmail(updated, nextStep);
+      if (emailResult?.ok) {
+        toast('✓ Step ' + (stepDone+1) + ' approved — email sent to ' + (nextAp?.name||'next approver') + '.');
+      } else {
+        toast('✓ Step approved — but email to ' + (nextAp?.name||'next approver') + ' failed. Check email setup.', 'warn');
+      }
+    }
   }
 }
 
@@ -1492,7 +1506,7 @@ async function sendApprovalEmail(r, stepIdx) {
     ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['Check Delivery',esc(r.check_delivery||'—')],['QB Account',esc(r.qb_account||'—')],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Receipt',r.receipt_url?`<a href="${r.receipt_url}" style="color:#1a2744;font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a>`:'None attached']])}
     ${summaryTable(r)}
     ${actionButtons}`);
-  await callResend(email, subj, html);
+  return await callResend(email, subj, html);
 }
 
 async function sendOkToPayEmail(r) {
