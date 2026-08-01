@@ -323,6 +323,16 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         <div class="form-group"><label>Payee Name <span class="req">*</span></label><input type="text" id="f-payee" placeholder="Person or company to pay"></div>
         <div class="form-group"><label>Payee Address</label><input type="text" id="f-address" placeholder="Mailing address for check"></div>
       </div>
+      <div class="form-row c2">
+        <div class="form-group">
+          <label>Check Delivery <span class="req">*</span></label>
+          <select id="f-delivery">
+            <option value="">— Select —</option>
+            <option value="Hold in office for pickup">Hold in office for pickup</option>
+            <option value="Mail to payee address">Mail to payee address</option>
+          </select>
+        </div>
+      </div>
 
       <div class="fsec">Expense Detail</div>
       <div class="form-row">
@@ -505,6 +515,27 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 
 <div class="toast" id="toast"></div>
 
+<!-- REJECTION REASON MODAL -->
+<div class="mbk" id="reject-mbk" onclick="if(event.target===this)closeRejectModal()" style="z-index:200">
+  <div class="modal" style="max-width:460px">
+    <div class="mhdr">
+      <div><h3>Reject Request</h3><div class="mid" id="reject-rid"></div></div>
+      <button class="btn-x" onclick="closeRejectModal()">×</button>
+    </div>
+    <div class="mbdy">
+      <p style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);margin-bottom:14px">Please provide a reason for rejecting this request. The submitter will be notified.</p>
+      <div class="form-group" style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif">Reason for Rejection <span class="req">*</span></label>
+        <textarea id="reject-reason" style="width:100%;padding:9px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);font-family:Arial,sans-serif;font-size:13px;resize:vertical;min-height:90px;margin-top:5px" placeholder="Explain why this request cannot be approved…"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn-sec" onclick="closeRejectModal()">Cancel</button>
+        <button class="btn-reject" onclick="confirmReject()" style="padding:9px 22px">✕ Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── SUPABASE ───────────────────────────────────────────────
 const SUPA_URL = 'https://qyoqyeaqacdjstvkonwx.supabase.co';
@@ -536,6 +567,22 @@ async function boot() {
     updateQCount();
     document.getElementById('conn-dot').className = 'conn-dot ok';
     document.getElementById('conn-lbl').textContent = 'Connected';
+
+    // ── Handle deep link from email buttons ──
+    const params = new URLSearchParams(window.location.search);
+    const openId = params.get('open');
+    const action = params.get('action');
+    if (openId) {
+      showTab('queue');
+      setTimeout(() => {
+        openModal(openId);
+        if (action === 'reject') {
+          setTimeout(() => doReject(openId), 300);
+        }
+      }, 400);
+      // Clean URL without reload
+      history.replaceState({}, '', window.location.pathname);
+    }
   } catch(e) {
     document.getElementById('conn-dot').className = 'conn-dot err';
     document.getElementById('conn-lbl').textContent = 'Offline';
@@ -759,9 +806,10 @@ async function submitRequest() {
   const chairN   = v('f-chair-name');
   const chairE   = v('f-chair-email');
   const payee    = v('f-payee');
+  const delivery = v('f-delivery');
   const purpose  = v('f-purpose');
 
-  if (!name||!email||!chairN||!chairE||!payee||!purpose) {
+  if (!name||!email||!chairN||!chairE||!payee||!delivery||!purpose) {
     toast('Please fill in all required fields.','warn'); return;
   }
   if (!lineItems.length) { toast('Add at least one line item.','warn'); return; }
@@ -806,6 +854,7 @@ async function submitRequest() {
     submitter_phone: v('f-phone'),
     chair_name: chairN, chair_email: chairE,
     payee, address: v('f-address'),
+    check_delivery: delivery,
     qb_account: null, qb_class: null,
     purpose, notes: v('f-notes'),
     receipts: v('f-receipts'),
@@ -847,7 +896,7 @@ function getApprovers(chairName, chairEmail) {
 
 function clearForm() {
   ['f-name','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id => document.getElementById(id).value='');
-  ['f-receipts'].forEach(id => document.getElementById(id).value='');
+  ['f-receipts','f-delivery'].forEach(id => document.getElementById(id).value='');
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
   const fi = document.getElementById('f-receipt-file');
   if (fi) fi.value = '';
@@ -1009,6 +1058,7 @@ function renderModal(id) {
       ${r.qb_account ? `<div class="di"><label>QB Account</label><p>${esc(r.qb_account)}</p></div>` : `<div class="di"><label>QB Account</label><p style="color:var(--text-muted);font-style:italic;font-size:13px">Added by Accounting at Step 2</p></div>`}
       ${r.qb_class  ? `<div class="di"><label>Class / Project</label><p>${esc(r.qb_class)}</p></div>` : `<div class="di"><label>Class / Project</label><p style="color:var(--text-muted);font-style:italic;font-size:13px">Added by Accounting at Step 2</p></div>`}
       ${r.address?`<div class="di full"><label>Payee Address</label><p>${esc(r.address)}</p></div>`:''}
+      ${r.check_delivery?`<div class="di"><label>Check Delivery</label><p>${esc(r.check_delivery)}</p></div>`:''}
       <div class="di full"><label>Purpose</label><p>${esc(r.purpose)}</p></div>
       ${r.receipts?`<div class="di"><label>Receipts</label><p>${esc(r.receipts)}</p></div>`:''}
       ${r.receipt_url?`<div class="di full"><label>Attached Receipt</label><p><a href="${r.receipt_url}" target="_blank" style="color:var(--navy);font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a></p></div>`:''}      ${r.notes?`<div class="di full"><label>Notes</label><p>${esc(r.notes)}</p></div>`:''}
@@ -1072,10 +1122,26 @@ async function doApprove(id) {
   }
 }
 
+let pendingRejectId = null;
+
 async function doReject(id) {
+  pendingRejectId = id;
+  document.getElementById('reject-rid').textContent = id;
+  document.getElementById('reject-reason').value = '';
+  document.getElementById('reject-mbk').classList.add('open');
+}
+
+function closeRejectModal() {
+  document.getElementById('reject-mbk').classList.remove('open');
+  pendingRejectId = null;
+}
+
+async function confirmReject() {
+  const id = pendingRejectId; if (!id) return;
+  const note = document.getElementById('reject-reason').value.trim();
+  if (!note) { toast('Please enter a reason for rejection.','warn'); return; }
   const r = allRequests.find(x=>x.id===id); if (!r||r.status!=='pending') return;
-  const note = document.getElementById('m-note')?.value.trim() || '';
-  const now  = new Date().toISOString();
+  const now = new Date().toISOString();
 
   const { error: e1 } = await db.from('cr_actions').insert({
     request_id: id, action: 'rejected',
@@ -1089,9 +1155,11 @@ async function doReject(id) {
   }).eq('id', id);
   if (e2) { toast('Error: ' + e2.message,'warn'); return; }
 
+  closeRejectModal();
+  closeModal();
   await loadRequests();
   await sendRejectionEmail(r, r.approvers[r.current_step]?.name||'Unknown', note);
-  toast('✕ Request ' + id + ' rejected — submitter notified.', 'warn');
+  toast('✕ Request ' + id + ' rejected — submitter notified.','warn');
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────
@@ -1337,12 +1405,24 @@ async function sendApprovalEmail(r, stepIdx) {
   const { email, label, isTest } = resolveRecipient(ap.email, ap.name);
   const subj = `[Action Required] Check Request ${r.id} — Step ${stepIdx+1} of 4 (${esc(ap.name)} / ${esc(ap.title)})`;
   const testNote = isTest ? `<div style="background:#fff8e6;border:1px solid #e8d07a;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;color:#7a4f00">🧪 <strong>TEST MODE</strong> — This email was intended for <strong>${esc(ap.name)}</strong> &lt;${esc(ap.email)}&gt; (${esc(ap.title)})</div>` : '';
+
+  // Deep link opens the app directly to this request
+  const appUrl = 'https://check-request.netlify.app';
+  const reviewLink = `${appUrl}?open=${r.id}`;
+
+  const actionButtons = `
+    <div style="margin:20px 0;text-align:center">
+      <a href="${reviewLink}&action=approve" style="display:inline-block;background:#2a7a4f;color:white;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:12px 28px;border-radius:6px;text-decoration:none;margin-right:12px">✓ Approve</a>
+      <a href="${reviewLink}&action=reject" style="display:inline-block;background:#fdecea;color:#c0392b;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:12px 28px;border-radius:6px;text-decoration:none;border:1px solid #f5b8b2">✕ Reject</a>
+    </div>
+    <p style="font-family:Arial,sans-serif;font-size:12px;color:#999;text-align:center;margin-bottom:16px">Buttons open the Check Request System where you can add notes before confirming.</p>`;
+
   const html = wrap(`${testNote}
     <h2 style="color:#1a2744;font-size:16px;margin:0 0 4px">Approval Request — Step ${stepIdx+1} of 4</h2>
     <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 16px">Intended approver: <strong>${esc(ap.name)}</strong> — ${esc(ap.title)}</p>
-    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Receipt',r.receipt_url?`<a href="${r.receipt_url}" style="color:#1a2744;font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a>`:'None attached']])}
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['Check Delivery',esc(r.check_delivery||'—')],['QB Account',esc(r.qb_account||'—')],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Receipt',r.receipt_url?`<a href="${r.receipt_url}" style="color:#1a2744;font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a>`:'None attached']])}
     ${summaryTable(r)}
-    <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin-top:14px">Log in to the Check Request System to approve or reject this request.</p>`);
+    ${actionButtons}`);
   await callResend(email, subj, html);
 }
 
@@ -1360,7 +1440,7 @@ async function sendOkToPayEmail(r) {
     <div style="background:#e8f5ee;border:1px solid #a3d9b9;border-radius:6px;padding:14px 18px;margin-bottom:20px">
       <strong style="font-family:Arial,sans-serif;font-size:15px;color:#2a7a4f">✓ All 4 approvals received — OK to issue payment by check</strong>
     </div>
-    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Amount',`<strong style="font-size:16px">$${Number(r.total).toFixed(2)}</strong>`],['Payee Address',esc(r.address||'—')],['QB Account',esc(r.qb_account||'—')],['Class / Project',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Notes',esc(r.notes||'')]])}
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Amount',`<strong style="font-size:16px">$${Number(r.total).toFixed(2)}</strong>`],['Check Delivery',`<strong>${esc(r.check_delivery||'—')}</strong>`],['Payee Address',esc(r.address||'—')],['QB Account',esc(r.qb_account||'—')],['Class / Project',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Notes',esc(r.notes||'')]])}
     ${summaryTable(r)}
     <h4 style="font-family:Arial,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#777;margin:16px 0 8px">Approval Chain</h4>
     <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f5f3ec">
