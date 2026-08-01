@@ -1,29 +1,31 @@
-// netlify/functions/send-email.js
-// Proxies email sends through Resend using the RESEND_API_KEY env var.
-// The key never touches the browser.
-
-
-exports.handler = async function (event) {
-  // Only accept POST
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
-  const key = process.env.RESEND_API_KEY;
+  const key = Netlify.env.get('RESEND_API_KEY');
   if (!key) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'RESEND_API_KEY not configured' }) };
+    return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   let payload;
   try {
-    payload = JSON.parse(event.body);
+    payload = await req.json();
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   const { to, subject, html } = payload;
   if (!to || !subject || !html) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Missing to, subject, or html' }) };
+    return new Response(JSON.stringify({ error: 'Missing to, subject, or html' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   try {
@@ -42,16 +44,12 @@ exports.handler = async function (event) {
     });
 
     const data = await res.json();
-
-    return {
-      statusCode: res.status,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    };
+    return new Response(JSON.stringify(data), {
+      status: res.status, headers: { 'Content-Type': 'application/json' }
+    });
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message })
-    };
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    });
   }
 };
