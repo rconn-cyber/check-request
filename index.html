@@ -186,6 +186,12 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .test-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
 .test-row input{flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+.test-banner{display:none;background:#7a4f00;color:#ffe8a0;font-family:Arial,sans-serif;font-size:13px;padding:8px 18px;text-align:center;letter-spacing:.02em;border-bottom:2px solid #c9a227}
+.test-banner.on{display:block}
+.test-mode-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff8e6;border:1px solid #e8d07a;border-radius:var(--radius);margin-bottom:16px;font-family:Arial,sans-serif;font-size:13px;cursor:pointer;user-select:none}
+.test-mode-row input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--warning)}
+.test-mode-row label{cursor:pointer;color:var(--warning);font-weight:bold}
+.test-mode-row .tm-sub{color:var(--text-muted);font-size:12px;margin-left:4px;font-weight:normal}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-overlay{position:fixed;inset:0;background:rgba(250,248,243,.8);z-index:200;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:var(--navy);gap:12px}
 @media(max-width:600px){.form-row.c2,.form-row.c3{grid-template-columns:1fr}.arow{grid-template-columns:1fr 1fr}.rcb{flex-direction:column;align-items:flex-start}.dgrid{grid-template-columns:1fr}.form-card{padding:18px 16px}.page-header{padding:14px 16px}.main{padding:18px 12px 40px}}
@@ -207,6 +213,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
   </div>
 </div>
 
+<div class="test-banner" id="test-banner">🧪 TEST MODE — All emails are being redirected to <span id="test-banner-addr"></span></div>
 <div class="main">
   <div class="tab-bar">
     <button class="tab active" onclick="showTab('submit')">Submit Request</button>
@@ -278,6 +285,11 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         </div>
       </div>
 
+      <div class="test-mode-row" onclick="toggleTestMode()" id="test-mode-row">
+        <input type="checkbox" id="test-mode-chk" onclick="event.stopPropagation();toggleTestMode()">
+        <label for="test-mode-chk">🧪 Test Mode <span class="tm-sub">— all emails redirect to the test address set in Admin</span></label>
+      </div>
+
       <div class="form-actions">
         <button class="btn-sec" onclick="clearForm()">Clear</button>
         <button class="btn-primary" id="btn-submit" onclick="submitRequest()">Submit for Approval →</button>
@@ -323,16 +335,16 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
       <div class="adm-sec">
         <h3>Steps 2–4 Approver Emails</h3>
         <p class="adm-note">Step 1 (Committee Chair) is entered by the submitter per request. Steps 2–4 are fixed org roles.</p>
-        <div class="arow"><span class="slbl">Step 2 — Treasurer</span><input type="text" id="a-n2" placeholder="Name"><input type="email" id="a-e2" placeholder="Email"><button class="asave" onclick="saveApprover(2)">Save</button></div>
-        <div class="arow"><span class="slbl">Step 3 — Secretary</span><input type="text" id="a-n3" placeholder="Name"><input type="email" id="a-e3" placeholder="Email"><button class="asave" onclick="saveApprover(3)">Save</button></div>
+        <div class="arow"><span class="slbl">Step 2 — Accounting</span><input type="text" id="a-n2" placeholder="Name"><input type="email" id="a-e2" placeholder="Email"><button class="asave" onclick="saveApprover(2)">Save</button></div>
+        <div class="arow"><span class="slbl">Step 3 — Treasurer</span><input type="text" id="a-n3" placeholder="Name"><input type="email" id="a-e3" placeholder="Email"><button class="asave" onclick="saveApprover(3)">Save</button></div>
         <div class="arow"><span class="slbl">Step 4 — President</span><input type="text" id="a-n4" placeholder="Name"><input type="email" id="a-e4" placeholder="Email"><button class="asave" onclick="saveApprover(4)">Save</button></div>
       </div>
 
       <!-- Office Manager -->
       <div class="adm-sec">
-        <h3>Office Manager — OK to Pay Recipient</h3>
+        <h3>Office Administrator — OK to Pay Recipient</h3>
         <p class="adm-note">Receives the final "OK to Pay" email once all 4 approvals are complete.</p>
-        <div class="arow"><span class="slbl">Office Manager</span><input type="text" id="a-om-n" placeholder="Name"><input type="email" id="a-om-e" placeholder="Email"><button class="asave" onclick="saveOM()">Save</button></div>
+        <div class="arow"><span class="slbl">Office Administrator</span><input type="text" id="a-om-n" placeholder="Name"><input type="email" id="a-om-e" placeholder="Email"><button class="asave" onclick="saveOM()">Save</button></div>
       </div>
 
       <!-- QB Accounts editor -->
@@ -379,6 +391,13 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         </div>
       </div>
 
+      <!-- Test Mode -->
+      <div class="adm-sec">
+        <h3>Test Mode</h3>
+        <p class="adm-note">When Test Mode is enabled on the form, all notification emails (approvals, rejections, OK to Pay) are sent to the address below instead of the real recipients. Names are preserved in subject lines and email bodies.</p>
+        <div class="arow"><span class="slbl">Test Email Address</span><input type="email" id="a-test-addr" placeholder="you@email.com" style="grid-column:span 2"><button class="asave" onclick="saveTestAddr()">Save</button></div>
+      </div>
+
       <!-- Change password -->
       <div class="adm-sec">
         <h3>Change Admin Password</h3>
@@ -421,6 +440,7 @@ let lineItems   = [];
 let currentFilter = 'all';
 let adminUnlocked = false;
 let currentModalId = null;
+let testModeOn = false;
 
 // ─── BOOT ───────────────────────────────────────────────────
 async function boot() {
@@ -607,13 +627,13 @@ async function submitRequest() {
 }
 
 function getApprovers(chairName, chairEmail) {
-  const ap2 = settings['approver_2'] || {name:'Ed Dunn',email:'ed.dunn@tamparoughriders.org',title:'Treasurer'};
-  const ap3 = settings['approver_3'] || {name:'Todd Parry',email:'todd.parry@tamparoughriders.org',title:'Secretary'};
+  const ap2 = settings['approver_2'] || {name:'Ed Dunn',email:'ed.dunn@tamparoughriders.org',title:'Accounting'};
+  const ap3 = settings['approver_3'] || {name:'Todd Parry',email:'todd.parry@tamparoughriders.org',title:'Treasurer'};
   const ap4 = settings['approver_4'] || {name:'LT COL Robin Conn',email:'r.conn@tamparoughriders.org',title:'President'};
   return [
     {name: chairName, email: chairEmail, title: 'Committee Chair'},
-    {name: ap2.name, email: ap2.email, title: 'Treasurer'},
-    {name: ap3.name, email: ap3.email, title: 'Secretary'},
+    {name: ap2.name, email: ap2.email, title: 'Accounting'},
+    {name: ap3.name, email: ap3.email, title: 'Treasurer'},
     {name: ap4.name, email: ap4.email, title: 'President'}
   ];
 }
@@ -846,7 +866,8 @@ function loadAdminFields() {
   const om = settings['office_mgr'] || {};
   document.getElementById('a-om-n').value = om.name  || '';
   document.getElementById('a-om-e').value = om.email || '';
-  document.getElementById('a-rk').value   = settings['resend_key'] || '';
+  document.getElementById('a-rk').value        = settings['resend_key'] || '';
+  document.getElementById('a-test-addr').value = settings['test_email']  || '';
   renderAccountEditor();
   renderClassEditor();
 }
@@ -861,7 +882,7 @@ async function saveApprover(n) {
   const name  = document.getElementById('a-n'+n).value.trim();
   const email = document.getElementById('a-e'+n).value.trim();
   if (!name||!email) { toast('Enter both name and email.','warn'); return; }
-  const titles = {2:'Treasurer',3:'Secretary',4:'President'};
+  const titles = {2:'Accounting',3:'Treasurer',4:'President'};
   try {
     await saveSetting('approver_'+n, {name,email,title:titles[n]});
     toast('✓ Step '+n+' approver saved.');
@@ -990,17 +1011,40 @@ async function addClass() {
   toast('✓ Class added.');
 }
 
+// ─── TEST MODE ───────────────────────────────────────────────
+function toggleTestMode() {
+  testModeOn = !testModeOn;
+  document.getElementById('test-mode-chk').checked = testModeOn;
+  const addr = settings['test_email'] || '';
+  const banner = document.getElementById('test-banner');
+  document.getElementById('test-banner-addr').textContent = addr || '(no test address set)';
+  banner.classList.toggle('on', testModeOn);
+  if (testModeOn && !addr) toast('Set a Test Email Address in Admin first.', 'warn');
+}
+
+function resolveRecipient(realTo, realName) {
+  // In test mode: redirect to test address, but return the real name for display
+  if (testModeOn) {
+    const testAddr = settings['test_email'] || '';
+    if (!testAddr) return { email: realTo, label: realName, isTest: false };
+    return { email: testAddr, label: realName, isTest: true };
+  }
+  return { email: realTo, label: realName, isTest: false };
+}
+
 // ─── EMAIL ───────────────────────────────────────────────────
 function getResendKey() { return settings['resend_key'] || ''; }
 
-async function callResend(to, subject, html) {
+async function callResend(to, subject, html, testPrefix) {
   const key = getResendKey();
   if (!key) { console.log('[Email] No key. To:', to, 'Subj:', subject); return {ok:false,reason:'no_key'}; }
+  // Prepend [TEST] to subject when in test mode
+  const finalSubject = testModeOn ? '[TEST] ' + subject : subject;
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html })
+      body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject: finalSubject, html })
     });
     return { ok: res.ok, data: await res.json() };
   } catch(e) { return {ok:false,error:e.message}; }
@@ -1037,25 +1081,29 @@ function infoTable(rows) {
 
 async function sendApprovalEmail(r, stepIdx) {
   const ap = (r.approvers||[])[stepIdx]; if (!ap?.email) return;
-  const subj = `[Action Required] Check Request ${r.id} — Step ${stepIdx+1} of 4`;
-  const html = wrap(`
+  const { email, label, isTest } = resolveRecipient(ap.email, ap.name);
+  const subj = `[Action Required] Check Request ${r.id} — Step ${stepIdx+1} of 4 (${esc(ap.name)} / ${esc(ap.title)})`;
+  const testNote = isTest ? `<div style="background:#fff8e6;border:1px solid #e8d07a;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;color:#7a4f00">🧪 <strong>TEST MODE</strong> — This email was intended for <strong>${esc(ap.name)}</strong> &lt;${esc(ap.email)}&gt; (${esc(ap.title)})</div>` : '';
+  const html = wrap(`${testNote}
     <h2 style="color:#1a2744;font-size:16px;margin:0 0 4px">Approval Request — Step ${stepIdx+1} of 4</h2>
-    <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 16px">You are the <strong>${esc(ap.title)}</strong> for this request.</p>
+    <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 16px">Intended approver: <strong>${esc(ap.name)}</strong> — ${esc(ap.title)}</p>
     ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)]])}
     ${summaryTable(r)}
     <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin-top:14px">Log in to the Check Request System to approve or reject this request.</p>`);
-  await callResend(ap.email, subj, html);
+  await callResend(email, subj, html);
 }
 
 async function sendOkToPayEmail(r) {
-  const om = settings['office_mgr'] || {email:'office@tamparoughriders.org'};
+  const om = settings['office_mgr'] || {name:'Office Administrator', email:'office@tamparoughriders.org'};
   if (!om.email) return;
+  const { email, isTest } = resolveRecipient(om.email, om.name);
+  const testNote = isTest ? `<div style="background:#fff8e6;border:1px solid #e8d07a;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;color:#7a4f00">🧪 <strong>TEST MODE</strong> — This email was intended for <strong>${esc(om.name)}</strong> &lt;${esc(om.email)}&gt; (Office Administrator)</div>` : '';
   const acts = allActions[r.id] || [];
   const apLog = acts.filter(a=>a.action==='approved').map(a =>
     `<tr><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">Step ${a.step_index+1} — ${esc((r.approvers||[])[a.step_index]?.title||'')}</td><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">${esc(a.actor_name)}</td><td style="padding:5px 10px;font-family:Arial,sans-serif;font-size:13px;border-bottom:1px solid #eee">${new Date(a.created_at).toLocaleString()}</td></tr>`
   ).join('');
   const subj = `✓ OK TO PAY — ${r.id} — $${Number(r.total).toFixed(2)} to ${r.payee}`;
-  const html = wrap(`
+  const html = wrap(`${testNote}
     <div style="background:#e8f5ee;border:1px solid #a3d9b9;border-radius:6px;padding:14px 18px;margin-bottom:20px">
       <strong style="font-family:Arial,sans-serif;font-size:15px;color:#2a7a4f">✓ All 4 approvals received — OK to issue payment by check</strong>
     </div>
@@ -1067,19 +1115,32 @@ async function sendOkToPayEmail(r) {
       <th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Approver</th>
       <th style="padding:6px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase">Timestamp</th>
     </tr></thead><tbody>${apLog}</tbody></table>`);
-  await callResend(om.email, subj, html);
+  await callResend(email, subj, html);
 }
 
 async function sendRejectionEmail(r, rejector, note) {
   if (!r.submitter_email) return;
+  const { email, isTest } = resolveRecipient(r.submitter_email, r.submitter);
+  const testNote = isTest ? `<div style="background:#fff8e6;border:1px solid #e8d07a;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;color:#7a4f00">🧪 <strong>TEST MODE</strong> — This email was intended for <strong>${esc(r.submitter)}</strong> &lt;${esc(r.submitter_email)}&gt;</div>` : '';
   const subj = `[Rejected] Check Request ${r.id} — ${r.payee} $${Number(r.total).toFixed(2)}`;
-  const html = wrap(`
+  const html = wrap(`${testNote}
     <div style="background:#fdecea;border:1px solid #f5b8b2;border-radius:6px;padding:14px 18px;margin-bottom:20px">
       <strong style="font-family:Arial,sans-serif;font-size:15px;color:#c0392b">✕ Your check request was not approved</strong>
     </div>
     ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',esc(r.payee)],['Amount',`$${Number(r.total).toFixed(2)}`],['Rejected by',`${esc(rejector)} — Step ${r.current_step+1}`],['Reason',note?`<strong>${esc(note)}</strong>`:'(no reason given)']])}
     <p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Please contact the approver for clarification, or resubmit with corrections.</p>`);
-  await callResend(r.submitter_email, subj, html);
+  await callResend(email, subj, html);
+}
+
+async function saveTestAddr() {
+  const addr = document.getElementById('a-test-addr').value.trim();
+  if (!addr) { toast('Enter an email address.','warn'); return; }
+  try {
+    await saveSetting('test_email', addr);
+    // Update banner if test mode is on
+    document.getElementById('test-banner-addr').textContent = addr;
+    toast('✓ Test email address saved: ' + addr);
+  } catch(e) { toast('Error: '+e.message,'warn'); }
 }
 
 async function sendTest() {
