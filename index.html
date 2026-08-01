@@ -444,9 +444,10 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 
       <!-- Resend -->
       <div class="adm-sec">
-        <h3>Email Service (Resend)</h3>
-        <p class="adm-note">Outgoing emails are sent from <strong>r.conn@tamparoughriders.org</strong>. Use the button below to verify email delivery is working.</p>
-        <div class="test-row">
+        <h3>Email Service</h3>
+        <p class="adm-note">Emails send from <strong>r.conn@tamparoughriders.org</strong>. The API key is stored in the database — not in source code.</p>
+        <div class="arow"><span class="slbl">Resend API Key</span><input type="password" id="a-rk" placeholder="re_…" style="grid-column:span 2"><button class="asave" onclick="saveResendKey()">Save</button></div>
+        <div class="test-row" style="margin-top:12px">
           <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">Send test email to:</span>
           <input type="email" id="test-addr" placeholder="you@email.com">
           <button class="asave" onclick="sendTest()">Send Test</button>
@@ -977,7 +978,8 @@ function loadAdminFields() {
   const om = settings['office_mgr'] || {};
   document.getElementById('a-om-n').value = om.name  || '';
   document.getElementById('a-om-e').value = om.email || '';
-  document.getElementById('a-test-addr').value = settings['test_email']  || '';
+  document.getElementById('a-rk').value         = settings['resend_key'] || '';
+  document.getElementById('a-test-addr').value  = settings['test_email']  || '';
   renderAccountEditor();
   renderClassEditor();
 }
@@ -1006,6 +1008,15 @@ async function saveOM() {
   try {
     await saveSetting('office_mgr', {name,email});
     toast('✓ Office Manager saved.');
+  } catch(e) { toast('Error: '+e.message,'warn'); }
+}
+
+async function saveResendKey() {
+  const key = document.getElementById('a-rk').value.trim();
+  if (!key) { toast('Enter an API key.','warn'); return; }
+  try {
+    await saveSetting('resend_key', key);
+    toast('✓ Resend API key saved.');
   } catch(e) { toast('Error: '+e.message,'warn'); }
 }
 
@@ -1135,21 +1146,36 @@ function resolveRecipient(realTo, realName) {
 }
 
 // ─── EMAIL ───────────────────────────────────────────────────
+// ─── EMAIL ───────────────────────────────────────────────────
+// Resend key is stored in Supabase cr_settings (admin-only access)
+// and never hardcoded in source.
+
+function getResendKey() {
+  return settings['resend_key'] || '';
+}
+
 async function callResend(to, subject, html) {
-  // Routes through /.netlify/functions/send-email
-  // RESEND_API_KEY lives in Netlify env vars — never exposed to the browser
+  const key = getResendKey();
+  if (!key) {
+    console.warn('[Email] No Resend key in settings. Go to Admin → Email Service → save key.');
+    return { ok: false, reason: 'no_key' };
+  }
   const finalSubject = testModeOn ? '[TEST] ' + subject : subject;
   try {
-    const res = await fetch('/.netlify/functions/send-email', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject: finalSubject, html })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({
+        from: 'Rough Riders Check Request <r.conn@tamparoughriders.org>',
+        to: Array.isArray(to) ? to : [to],
+        subject: finalSubject,
+        html
+      })
     });
     const data = await res.json();
-    if (!res.ok) console.warn('[Email] Function error:', data);
     return { ok: res.ok, data };
   } catch(e) {
-    console.warn('[Email] Function unreachable:', e.message);
+    console.warn('[Email] Resend call failed:', e.message);
     return { ok: false, error: e.message };
   }
 }
@@ -1252,8 +1278,9 @@ async function sendTest() {
   if (!to) { toast('Enter a test email address.','warn'); return; }
   const html = wrap(`<h2 style="color:#1a2744;font-size:16px">Test Email</h2><p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Rough Riders Check Request System email is configured correctly! The Netlify function and Resend API key are working.</p>`);
   const r = await callResend(to, '[Test] Rough Riders Check Request System', html);
-  if (r.ok) toast('✓ Test email sent to ' + to);
-  else toast('Send failed — check RESEND_API_KEY in Netlify environment variables.','warn');
+  if (r.reason==='no_key') toast('Enter and save your Resend API key in Admin → Email Service first.','warn');
+  else if (r.ok) toast('✓ Test email sent to ' + to);
+  else toast('Send failed — check the Resend API key in Admin.','warn');
 }
 
 // ─── TABS ────────────────────────────────────────────────────
