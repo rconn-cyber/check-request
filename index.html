@@ -48,7 +48,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .li-row input{border:none;border-right:1px solid var(--border);border-radius:0;padding:8px 10px;font-size:13px;width:100%;font-family:Arial,sans-serif}
 .li-row input:last-of-type{border-right:none}
 .li-row input:focus{outline:none;background:#f0f4ff}
-.li-head{background:#f5f3ec;font-size:11px;font-weight:bold;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif}
+.li-head{background:#f5f3ec;font-size:11px;font-weight:bold;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;font-family:Arial,sans-serif;display:grid;grid-template-columns:1fr 120px 110px 36px}
 .li-head span{padding:6px 10px;display:block}
 .btn-rm{background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:0 10px;line-height:1}
 .btn-rm:hover{color:var(--danger)}
@@ -194,7 +194,66 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .test-mode-row .tm-sub{color:var(--text-muted);font-size:12px;margin-left:4px;font-weight:normal}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-overlay{position:fixed;inset:0;background:rgba(250,248,243,.8);z-index:200;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:var(--navy);gap:12px}
-@media(max-width:600px){.form-row.c2,.form-row.c3{grid-template-columns:1fr}.arow{grid-template-columns:1fr 1fr}.rcb{flex-direction:column;align-items:flex-start}.dgrid{grid-template-columns:1fr}.form-card{padding:18px 16px}.page-header{padding:14px 16px}.main{padding:18px 12px 40px}}
+@media(max-width:640px){
+  /* Layout */
+  .page-header{padding:12px 14px;gap:10px}
+  .header-emblem{width:40px;height:40px;font-size:17px;flex-shrink:0}
+  .header-text h1{font-size:15px}
+  .header-text p{font-size:10px}
+  .conn-status{font-size:11px}
+  .main{padding:14px 10px 48px}
+  .form-card{padding:16px 14px}
+
+  /* Tabs */
+  .tab-bar{font-size:12px;flex-wrap:wrap}
+  .tab{padding:7px 12px;font-size:12px}
+
+  /* Form rows — all stack */
+  .form-row.c2,.form-row.c3{grid-template-columns:1fr}
+  .form-row.c2 .form-group[style*="grid-column"]{grid-column:1}
+
+  /* Line items — compress columns */
+  .li-row{grid-template-columns:1fr 90px 80px 30px}
+  .li-head{grid-template-columns:1fr 90px 80px 30px}
+  .li-row input{font-size:12px;padding:7px 6px}
+
+  /* Queue cards */
+  .rcb{flex-direction:column;align-items:flex-start;gap:10px}
+  .pipeline{align-self:flex-start}
+  .pip-step{min-width:48px}
+  .pip-lbl{font-size:9px;max-width:48px}
+  .pip-conn{width:16px}
+
+  /* Modal */
+  .modal{border-radius:0;max-height:100vh;height:100vh}
+  .mbk{padding:0;align-items:flex-end}
+  .dgrid{grid-template-columns:1fr}
+  .dpipe{padding:12px 6px;gap:0;overflow-x:auto}
+  .dps{min-width:56px}
+  .dplbl{font-size:10px;max-width:56px}
+  .dpc{width:24px}
+  .abtns{flex-direction:column}
+  .btn-approve,.btn-reject{width:100%;text-align:center;padding:12px}
+
+  /* Admin */
+  .arow{grid-template-columns:1fr 1fr}
+  .arow .slbl{grid-column:1/-1}
+  .arow button{grid-column:1/-1;width:100%}
+  .add-entry{flex-direction:column}
+  .add-entry input,.add-entry select,.add-entry button{width:100%}
+  .test-row{flex-direction:column}
+  .test-row input,.test-row button{width:100%}
+
+  /* Buttons */
+  .form-actions{flex-direction:column-reverse;gap:8px}
+  .btn-primary,.btn-sec{width:100%;text-align:center;padding:12px}
+
+  /* Test mode row */
+  .test-mode-row{font-size:12px}
+
+  /* Toast */
+  .toast{left:12px;right:12px;bottom:16px;max-width:none}
+}
 </style>
 </head>
 <body>
@@ -253,22 +312,32 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         <div class="form-group"><label>Payee Address</label><input type="text" id="f-address" placeholder="Mailing address for check"></div>
       </div>
       <div class="form-row c2">
-        <div class="form-group"><label>QB Account <span class="req">*</span></label><select id="f-account"><option value="">— Select Account —</option></select></div>
-        <div class="form-group"><label>Class / Project <span class="req">*</span></label><select id="f-class"><option value="">— Select Class —</option></select></div>
+        <div class="form-group" style="grid-column:1/-1"><label>QB Account <span class="req">*</span></label><select id="f-account"><option value="">— Select Account —</option></select></div>
+      </div>
+      <div class="form-row c2">
+        <div class="form-group" style="grid-column:1/-1"><label>Class / Project <span class="req">*</span></label><select id="f-class"><option value="">— Select Class —</option></select></div>
       </div>
 
       <div class="fsec">Expense Detail</div>
+      <div class="form-row">
+        <div class="form-group"><label>Purpose / Description <span class="req">*</span></label>
+          <textarea id="f-purpose" placeholder="Describe the purpose of this payment and how it benefits the organization…"></textarea>
+        </div>
+      </div>
       <div class="form-row c2">
-        <div class="form-group"><label>Receipts / Invoices</label>
+        <div class="form-group">
+          <label>Receipts / Invoices</label>
           <select id="f-receipts">
             <option value="">— Select —</option>
-            <option>Yes — attached</option>
+            <option>Yes — attached below</option>
             <option>Yes — will email separately</option>
             <option>Not available</option>
           </select>
         </div>
-        <div class="form-group" style="grid-column:1/-1"><label>Purpose / Description <span class="req">*</span></label>
-          <textarea id="f-purpose" placeholder="Describe the purpose of this payment and how it benefits the organization…"></textarea>
+        <div class="form-group">
+          <label>Attach Receipt / Invoice</label>
+          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer">
+          <span style="font-size:11px;color:var(--text-muted);font-family:Arial,sans-serif;margin-top:2px">PDF, image, or Office doc — max 10MB</span>
         </div>
       </div>
 
@@ -382,7 +451,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
       <!-- Resend -->
       <div class="adm-sec">
         <h3>Email Service (Resend)</h3>
-        <p class="adm-note">The Resend API key is stored as a <strong>Netlify environment variable</strong> (<code>RESEND_API_KEY</code>) and injected at build time — it never appears in the source code or database. To update the key: go to your Netlify site → <em>Site configuration → Environment variables</em>, update <code>RESEND_API_KEY</code>, then trigger a redeploy. From: <strong>r.conn@tamparoughriders.org</strong></p>
+        <p class="adm-note">Outgoing emails are sent from <strong>r.conn@tamparoughriders.org</strong>. Use the button below to verify email delivery is working.</p>
         <div class="test-row">
           <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">Send test email to:</span>
           <input type="email" id="test-addr" placeholder="you@email.com">
@@ -585,9 +654,38 @@ async function submitRequest() {
   if (!lineItems.length) { toast('Add at least one line item.','warn'); return; }
   if (getTotal() <= 0)   { toast('Total must be greater than $0.','warn'); return; }
 
-  const ap = getApprovers(chairN, chairE);
+  const ap  = getApprovers(chairN, chairE);
   const id  = 'RR-' + String(Date.now()).slice(-6);
   const now = new Date().toISOString();
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submitting…';
+
+  // ── Upload receipt file if provided ──
+  let receipt_url = null;
+  let receipt_filename = null;
+  const fileInput = document.getElementById('f-receipt-file');
+  const file = fileInput?.files?.[0];
+  if (file) {
+    if (file.size > 10 * 1024 * 1024) {
+      toast('File too large — max 10MB.','warn');
+      btn.disabled=false; btn.textContent='Submit for Approval →'; return;
+    }
+    btn.innerHTML = '<span class="spinner"></span>Uploading receipt…';
+    const ext = file.name.split('.').pop();
+    const path = `receipts/${id}-${Date.now()}.${ext}`;
+    const { data: upData, error: upErr } = await db.storage
+      .from('cr-receipts')
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) {
+      toast('Receipt upload failed: ' + upErr.message, 'warn');
+      btn.disabled=false; btn.textContent='Submit for Approval →'; return;
+    }
+    const { data: urlData } = db.storage.from('cr-receipts').getPublicUrl(path);
+    receipt_url = urlData?.publicUrl || null;
+    receipt_filename = file.name;
+    btn.innerHTML = '<span class="spinner"></span>Saving request…';
+  }
 
   const req = {
     id,
@@ -598,15 +696,13 @@ async function submitRequest() {
     qb_account: account, qb_class: cls,
     purpose, notes: v('f-notes'),
     receipts: v('f-receipts'),
+    receipt_url, receipt_filename,
     line_items: lineItems.map(li => ({desc:li.desc,date:li.date,amount:parseFloat(li.amount)||0})),
     total: getTotal(),
     approvers: ap,
     current_step: 0, status: 'pending',
     created_at: now, updated_at: now
   };
-
-  const btn = document.getElementById('btn-submit');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submitting…';
 
   const { error: e1 } = await db.from('cr_requests').insert(req);
   if (e1) { toast('Error saving request: ' + e1.message, 'warn'); btn.disabled=false; btn.textContent='Submit for Approval →'; return; }
@@ -640,6 +736,8 @@ function clearForm() {
   ['f-name','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id => document.getElementById(id).value='');
   ['f-account','f-class','f-receipts'].forEach(id => document.getElementById(id).value='');
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  const fi = document.getElementById('f-receipt-file');
+  if (fi) fi.value = '';
   lineItems = []; renderLI(); addLI();
 }
 
@@ -770,7 +868,7 @@ function renderModal(id) {
       ${r.address?`<div class="di full"><label>Payee Address</label><p>${esc(r.address)}</p></div>`:''}
       <div class="di full"><label>Purpose</label><p>${esc(r.purpose)}</p></div>
       ${r.receipts?`<div class="di"><label>Receipts</label><p>${esc(r.receipts)}</p></div>`:''}
-      ${r.notes?`<div class="di full"><label>Notes</label><p>${esc(r.notes)}</p></div>`:''}
+      ${r.receipt_url?`<div class="di full"><label>Attached Receipt</label><p><a href="${r.receipt_url}" target="_blank" style="color:var(--navy);font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a></p></div>`:''}      ${r.notes?`<div class="di full"><label>Notes</label><p>${esc(r.notes)}</p></div>`:''}
     </div>
     <table class="dtbl">
       <thead><tr><th>Description</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead>
@@ -1078,7 +1176,7 @@ async function sendApprovalEmail(r, stepIdx) {
   const html = wrap(`${testNote}
     <h2 style="color:#1a2744;font-size:16px;margin:0 0 4px">Approval Request — Step ${stepIdx+1} of 4</h2>
     <p style="font-family:Arial,sans-serif;font-size:13px;color:#777;margin:0 0 16px">Intended approver: <strong>${esc(ap.name)}</strong> — ${esc(ap.title)}</p>
-    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)]])}
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Total',`<strong>$${Number(r.total).toFixed(2)}</strong>`],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Receipt',r.receipt_url?`<a href="${r.receipt_url}" style="color:#1a2744;font-weight:bold">📎 ${esc(r.receipt_filename||'View attachment')}</a>`:'None attached']])}
     ${summaryTable(r)}
     <p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin-top:14px">Log in to the Check Request System to approve or reject this request.</p>`);
   await callResend(email, subj, html);
