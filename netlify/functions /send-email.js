@@ -2,6 +2,7 @@
 // Proxies email sends through Resend using the RESEND_API_KEY env var.
 // The key never touches the browser.
 
+
 exports.handler = async function (event) {
   // Only accept POST
   if (event.httpMethod !== 'POST') {
