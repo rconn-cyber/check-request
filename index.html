@@ -311,12 +311,6 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         <div class="form-group"><label>Payee Name <span class="req">*</span></label><input type="text" id="f-payee" placeholder="Person or company to pay"></div>
         <div class="form-group"><label>Payee Address</label><input type="text" id="f-address" placeholder="Mailing address for check"></div>
       </div>
-      <div class="form-row c2">
-        <div class="form-group" style="grid-column:1/-1"><label>QB Account <span class="req">*</span></label><select id="f-account"><option value="">— Select Account —</option></select></div>
-      </div>
-      <div class="form-row c2">
-        <div class="form-group" style="grid-column:1/-1"><label>Class / Project <span class="req">*</span></label><select id="f-class"><option value="">— Select Class —</option></select></div>
-      </div>
 
       <div class="fsec">Expense Detail</div>
       <div class="form-row">
@@ -572,34 +566,13 @@ async function loadRequests() {
 
 // ─── DROPDOWNS ───────────────────────────────────────────────
 function buildAccountDropdown() {
-  const sel = document.getElementById('f-account');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— Select Account —</option>';
-  qbAccounts.forEach(a => {
-    const opt = document.createElement('option');
-    const label = a.account_no ? `${a.account_no} — ${a.name}` : a.name;
-    opt.value = label; opt.textContent = label;
-    sel.appendChild(opt);
-  });
-  if (cur) sel.value = cur;
+  // Only used by Admin editor — modal select is built dynamically in renderModal
+  renderAccountEditor();
 }
 
 function buildClassDropdown() {
-  const sel = document.getElementById('f-class');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— Select Class —</option>';
-  const types = [...new Set(qbClasses.map(c => c.class_type))];
-  types.forEach(t => {
-    const og = document.createElement('optgroup');
-    og.label = t;
-    qbClasses.filter(c => c.class_type === t).forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.name; opt.textContent = c.name;
-      og.appendChild(opt);
-    });
-    sel.appendChild(og);
-  });
-  if (cur) sel.value = cur;
+  // Only used by Admin editor — modal select is built dynamically in renderModal
+  renderClassEditor();
 }
 
 // ─── LINE ITEMS ───────────────────────────────────────────────
@@ -644,11 +617,9 @@ async function submitRequest() {
   const chairN   = v('f-chair-name');
   const chairE   = v('f-chair-email');
   const payee    = v('f-payee');
-  const account  = v('f-account');
-  const cls      = v('f-class');
   const purpose  = v('f-purpose');
 
-  if (!name||!email||!chairN||!chairE||!payee||!account||!cls||!purpose) {
+  if (!name||!email||!chairN||!chairE||!payee||!purpose) {
     toast('Please fill in all required fields.','warn'); return;
   }
   if (!lineItems.length) { toast('Add at least one line item.','warn'); return; }
@@ -693,7 +664,7 @@ async function submitRequest() {
     submitter_phone: v('f-phone'),
     chair_name: chairN, chair_email: chairE,
     payee, address: v('f-address'),
-    qb_account: account, qb_class: cls,
+    qb_account: null, qb_class: null,
     purpose, notes: v('f-notes'),
     receipts: v('f-receipts'),
     receipt_url, receipt_filename,
@@ -734,7 +705,7 @@ function getApprovers(chairName, chairEmail) {
 
 function clearForm() {
   ['f-name','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id => document.getElementById(id).value='');
-  ['f-account','f-class','f-receipts'].forEach(id => document.getElementById(id).value='');
+  ['f-receipts'].forEach(id => document.getElementById(id).value='');
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
   const fi = document.getElementById('f-receipt-file');
   if (fi) fi.value = '';
@@ -788,7 +759,7 @@ function reqCard(r) {
     <div class="rcb">
       <div class="rmeta">
         <strong>Submitted by:</strong> ${esc(r.submitter)}<br>
-        <strong>Class:</strong> ${esc(r.qb_class||'—')} &nbsp;|&nbsp; <strong>Account:</strong> ${esc(r.qb_account)}<br>
+        <strong>Class:</strong> ${r.qb_class ? esc(r.qb_class) : '<em style="color:#aaa">pending</em>'} &nbsp;|&nbsp; <strong>Account:</strong> ${r.qb_account ? esc(r.qb_account) : '<em style="color:#aaa">pending</em>'}<br>
         <strong>Date:</strong> ${new Date(r.created_at).toLocaleDateString()}
       </div>
       <div class="pipeline">${pipeline}</div>
@@ -842,12 +813,41 @@ function renderModal(id) {
 
   const canAct = r.status === 'pending';
   const curAp  = aps[r.current_step] || {};
+  const isAccounting = r.current_step === 1; // Step 2 = index 1
+  const acctOptions = qbAccounts.map(a => {
+    const label = a.account_no ? `${a.account_no} — ${a.name}` : a.name;
+    const sel = r.qb_account === label ? 'selected' : '';
+    return `<option value="${esc(label)}" ${sel}>${esc(label)}</option>`;
+  }).join('');
+  const classOptions = qbClasses.map(c => {
+    const sel = r.qb_class === c.name ? 'selected' : '';
+    return `<option value="${esc(c.name)}" ${sel}>${esc(c.name)}</option>`;
+  }).join('');
+  const accountingFields = isAccounting ? `
+    <div style="background:#f0f4ff;border:1px solid #c0cef0;border-radius:6px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-family:Arial,sans-serif;font-size:12px;font-weight:bold;color:#334488;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📒 Accounting Coding — Required before approving</div>
+      <div style="display:grid;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:11px;font-weight:bold;color:#334488;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:.04em">QB Account <span style="color:var(--danger)">*</span></label>
+          <select id="m-qb-account" style="padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif">
+            <option value="">— Select Account —</option>${acctOptions}
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:11px;font-weight:bold;color:#334488;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:.04em">Class / Project <span style="color:var(--danger)">*</span></label>
+          <select id="m-qb-class" style="padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius);font-size:13px;font-family:Arial,sans-serif">
+            <option value="">— Select Class —</option>${classOptions}
+          </select>
+        </div>
+      </div>
+    </div>` : '';
   const actionHtml = canAct
     ? `<div class="azone">
         <h4>Action — Step ${r.current_step+1}: ${esc(curAp.name)} (${esc(curAp.title)})</h4>
         <div style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);margin-bottom:12px">
           Acting as: <strong>${esc(curAp.name)}</strong> — ${esc(curAp.title)}
         </div>
+        ${accountingFields}
         <textarea id="m-note" placeholder="Add a comment or note (optional)…"></textarea>
         <div class="abtns">
           <button class="btn-approve" onclick="doApprove('${r.id}')">✓ Approve</button>
@@ -863,8 +863,8 @@ function renderModal(id) {
     <div class="dgrid">
       <div class="di"><label>Submitted by</label><p>${esc(r.submitter)}</p></div>
       <div class="di"><label>Email</label><p>${esc(r.submitter_email)}</p></div>
-      <div class="di"><label>QB Account</label><p>${esc(r.qb_account)}</p></div>
-      <div class="di"><label>Class / Project</label><p>${esc(r.qb_class||'—')}</p></div>
+      ${r.qb_account ? `<div class="di"><label>QB Account</label><p>${esc(r.qb_account)}</p></div>` : `<div class="di"><label>QB Account</label><p style="color:var(--text-muted);font-style:italic;font-size:13px">Added by Accounting at Step 2</p></div>`}
+      ${r.qb_class  ? `<div class="di"><label>Class / Project</label><p>${esc(r.qb_class)}</p></div>` : `<div class="di"><label>Class / Project</label><p style="color:var(--text-muted);font-style:italic;font-size:13px">Added by Accounting at Step 2</p></div>`}
       ${r.address?`<div class="di full"><label>Payee Address</label><p>${esc(r.address)}</p></div>`:''}
       <div class="di full"><label>Purpose</label><p>${esc(r.purpose)}</p></div>
       ${r.receipts?`<div class="di"><label>Receipts</label><p>${esc(r.receipts)}</p></div>`:''}
@@ -884,6 +884,21 @@ async function doApprove(id) {
   const r = allRequests.find(x=>x.id===id); if (!r||r.status!=='pending') return;
   const note = document.getElementById('m-note')?.value.trim() || '';
   const stepDone = r.current_step;
+
+  // Step 2 (Accounting, index 1) must fill in QB Account and Class
+  if (stepDone === 1) {
+    const acct = document.getElementById('m-qb-account')?.value || '';
+    const cls  = document.getElementById('m-qb-class')?.value  || '';
+    if (!acct || !cls) {
+      toast('Please select a QB Account and Class before approving.', 'warn'); return;
+    }
+    // Save coding to the request
+    const { error: eCode } = await db.from('cr_requests').update({
+      qb_account: acct, qb_class: cls
+    }).eq('id', id);
+    if (eCode) { toast('Error saving QB coding: ' + eCode.message, 'warn'); return; }
+    r.qb_account = acct; r.qb_class = cls; // update local state too
+  }
   const nextStep = stepDone + 1;
   const isLast   = nextStep >= (r.approvers||[]).length;
   const newStatus = isLast ? 'complete' : 'pending';
@@ -1196,7 +1211,7 @@ async function sendOkToPayEmail(r) {
     <div style="background:#e8f5ee;border:1px solid #a3d9b9;border-radius:6px;padding:14px 18px;margin-bottom:20px">
       <strong style="font-family:Arial,sans-serif;font-size:15px;color:#2a7a4f">✓ All 4 approvals received — OK to issue payment by check</strong>
     </div>
-    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Amount',`<strong style="font-size:16px">$${Number(r.total).toFixed(2)}</strong>`],['Payee Address',esc(r.address||'—')],['QB Account',esc(r.qb_account)],['Class',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Notes',esc(r.notes||'')]])}
+    ${infoTable([['Request ID',`<strong>${r.id}</strong>`],['Payee',`<strong>${esc(r.payee)}</strong>`],['Amount',`<strong style="font-size:16px">$${Number(r.total).toFixed(2)}</strong>`],['Payee Address',esc(r.address||'—')],['QB Account',esc(r.qb_account||'—')],['Class / Project',esc(r.qb_class||'—')],['Submitted by',`${esc(r.submitter)} &lt;${esc(r.submitter_email)}&gt;`],['Purpose',esc(r.purpose)],['Notes',esc(r.notes||'')]])}
     ${summaryTable(r)}
     <h4 style="font-family:Arial,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#777;margin:16px 0 8px">Approval Chain</h4>
     <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f5f3ec">
