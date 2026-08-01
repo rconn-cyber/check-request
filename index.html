@@ -423,8 +423,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 // ─── SUPABASE ───────────────────────────────────────────────
 const SUPA_URL = 'https://qyoqyeaqacdjstvkonwx.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5b3F5ZWFxYWNkanN0dmtvbnd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NjUzMzMsImV4cCI6MjA4ODM0MTMzM30.Ln-i6P0qZlmGYoD-bC9xAlggyjt36bXXQfrqmHi-LLo';
-const RESEND_KEY = '%%RESEND_API_KEY%%'; // Injected at build time by Netlify
-const FROM_EMAIL = 'Rough Riders Check Request <r.conn@tamparoughriders.org>';
+// Email is sent via /.netlify/functions/send-email — RESEND_API_KEY stays server-side
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
@@ -626,8 +625,8 @@ async function submitRequest() {
 }
 
 function getApprovers(chairName, chairEmail) {
-  const ap2 = settings['approver_2'] || {name:'Ed Dunn',email:'ed.dunn@tamparoughriders.org',title:'Accounting'};
-  const ap3 = settings['approver_3'] || {name:'Todd Parry',email:'todd.parry@tamparoughriders.org',title:'Treasurer'};
+  const ap2 = settings['approver_2'] || {name:'Billy Hogan',email:'hoganbilly@live.com',title:'Accounting'};
+  const ap3 = settings['approver_3'] || {name:'Ed Dunn',email:'dunnpost26@att.net',title:'Treasurer'};
   const ap4 = settings['approver_4'] || {name:'LT COL Robin Conn',email:'r.conn@tamparoughriders.org',title:'President'};
   return [
     {name: chairName, email: chairEmail, title: 'Committee Chair'},
@@ -897,14 +896,6 @@ async function saveOM() {
   } catch(e) { toast('Error: '+e.message,'warn'); }
 }
 
-async function saveResendKey() {
-  const key = document.getElementById('a-rk').value.trim();
-  try {
-    await saveSetting('resend_key', key);
-    toast('✓ Resend API key saved.');
-  } catch(e) { toast('Error: '+e.message,'warn'); }
-}
-
 async function changePw() {
   const pw = document.getElementById('a-newpw').value;
   if (pw.length < 4) { toast('Password must be at least 4 characters.','warn'); return; }
@@ -1031,27 +1022,23 @@ function resolveRecipient(realTo, realName) {
 }
 
 // ─── EMAIL ───────────────────────────────────────────────────
-function getResendKey() {
-  // RESEND_KEY is injected at Netlify build time via netlify.toml [[plugins]] sed replacement.
-  // Falls back to cr_settings 'resend_key' if not substituted (local dev).
-  const buildKey = '%%RESEND_API_KEY%%';
-  if (RESEND_KEY && !RESEND_KEY.startsWith('%%')) return RESEND_KEY;
-  return settings['resend_key'] || '';
-}
-
-async function callResend(to, subject, html, testPrefix) {
-  const key = getResendKey();
-  if (!key) { console.log('[Email] No key. To:', to, 'Subj:', subject); return {ok:false,reason:'no_key'}; }
-  // Prepend [TEST] to subject when in test mode
+async function callResend(to, subject, html) {
+  // Routes through /.netlify/functions/send-email
+  // RESEND_API_KEY lives in Netlify env vars — never exposed to the browser
   const finalSubject = testModeOn ? '[TEST] ' + subject : subject;
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject: finalSubject, html })
+    const res = await fetch('/.netlify/functions/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject: finalSubject, html })
     });
-    return { ok: res.ok, data: await res.json() };
-  } catch(e) { return {ok:false,error:e.message}; }
+    const data = await res.json();
+    if (!res.ok) console.warn('[Email] Function error:', data);
+    return { ok: res.ok, data };
+  } catch(e) {
+    console.warn('[Email] Function unreachable:', e.message);
+    return { ok: false, error: e.message };
+  }
 }
 
 function wrap(content) {
@@ -1150,11 +1137,10 @@ async function saveTestAddr() {
 async function sendTest() {
   const to = document.getElementById('test-addr').value.trim();
   if (!to) { toast('Enter a test email address.','warn'); return; }
-  const html = wrap(`<h2 style="color:#1a2744;font-size:16px">Test Email</h2><p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Rough Riders Check Request System email is configured correctly!</p>`);
+  const html = wrap(`<h2 style="color:#1a2744;font-size:16px">Test Email</h2><p style="font-family:Arial,sans-serif;font-size:13px;color:#555">Rough Riders Check Request System email is configured correctly! The Netlify function and Resend API key are working.</p>`);
   const r = await callResend(to, '[Test] Rough Riders Check Request System', html);
-  if (r.reason==='no_key') toast('No Resend API key configured.','warn');
-  else if (r.ok) toast('✓ Test email sent to ' + to);
-  else toast('Send failed — check API key.','warn');
+  if (r.ok) toast('✓ Test email sent to ' + to);
+  else toast('Send failed — check RESEND_API_KEY in Netlify environment variables.','warn');
 }
 
 // ─── TABS ────────────────────────────────────────────────────
