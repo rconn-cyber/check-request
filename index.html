@@ -342,7 +342,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         </div>
         <div class="form-group">
           <label>Attach Receipt / Invoice</label>
-          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer" onchange="evaluateReceipt(this)">
+          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer" onchange="evaluateReceipt(this)">
           <span style="font-size:11px;color:var(--text-muted);font-family:Arial,sans-serif;margin-top:2px">PDF, image, or Office doc — max 10MB</span>
         </div>
       </div>
@@ -634,6 +634,24 @@ function renderLI() {
 }
 
 // ─── AI RECEIPT EVALUATION ────────────────────────────────────
+function parseReceiptDate(str) {
+  // Converts Claude's MM/DD/YYYY (or common variants) to YYYY-MM-DD for <input type="date">
+  if (!str || str === 'Unknown') return '';
+  // Try MM/DD/YYYY
+  let m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  // Try YYYY-MM-DD (already correct)
+  m = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return str.slice(0,10);
+  // Try Month DD, YYYY
+  m = str.match(/([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/);
+  if (m) {
+    const months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+    const mo = months[m[1].slice(0,3).toLowerCase()];
+    if (mo) return `${m[3]}-${mo}-${m[2].padStart(2,'0')}`;
+  }
+  return '';
+}
 async function evaluateReceipt(input) {
   const file = input.files?.[0];
   const wrap = document.getElementById('receipt-eval-wrap');
@@ -690,6 +708,31 @@ async function evaluateReceipt(input) {
     const flagClass = result.flag === 'ok' ? 'ok' : result.flag === 'warn' ? 'warn' : 'err';
     const flagIcon  = result.flag === 'ok' ? '✓' : result.flag === 'warn' ? '⚠' : '✕';
 
+    // ── Auto-populate line items from analysis ──
+    const parsedAmount = parseFloat((result.amount||'').replace(/[^0-9.]/g,'')) || null;
+    const parsedDate   = parseReceiptDate(result.date||'');
+    const parsedDesc   = [result.vendor, result.description].filter(x => x && x !== 'Unknown' && x !== '—').join(' — ') || '';
+
+    let autofillNote = '';
+    if (parsedAmount || parsedDate || parsedDesc) {
+      // Replace the first empty line item or add a new one
+      const emptyIdx = lineItems.findIndex(li => !li.desc && !li.amount && !li.date);
+      if (emptyIdx >= 0) {
+        if (parsedDesc)   lineItems[emptyIdx].desc   = parsedDesc;
+        if (parsedDate)   lineItems[emptyIdx].date   = parsedDate;
+        if (parsedAmount) lineItems[emptyIdx].amount = parsedAmount;
+      } else {
+        lineItems.push({
+          id: Date.now(),
+          desc:   parsedDesc,
+          date:   parsedDate || '',
+          amount: parsedAmount || ''
+        });
+      }
+      renderLI();
+      autofillNote = `<div style="font-family:Arial,sans-serif;font-size:11px;color:var(--success);margin-top:6px">✓ Line item auto-filled from receipt — please verify and adjust if needed.</div>`;
+    }
+
     content.innerHTML = `
       <div class="eval-grid">
         <div class="eval-item"><label>Vendor</label><p>${esc(result.vendor||'Unknown')}</p></div>
@@ -698,7 +741,8 @@ async function evaluateReceipt(input) {
         <div class="eval-item"><label>Description</label><p>${esc(result.description||'—')}</p></div>
       </div>
       <span class="eval-flag ${flagClass}">${flagIcon} ${esc(result.flag_label||'')}</span>
-      ${result.notes ? `<div class="eval-note">${esc(result.notes)}</div>` : ''}`;
+      ${result.notes ? `<div class="eval-note">${esc(result.notes)}</div>` : ''}
+      ${autofillNote}`;
     status.textContent = '— powered by Claude';
 
   } catch(e) {
