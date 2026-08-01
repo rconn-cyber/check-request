@@ -196,6 +196,15 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 .test-mode-row label{cursor:pointer;color:var(--warning);font-weight:bold}
 .test-mode-row .tm-sub{color:var(--text-muted);font-size:12px;margin-left:4px;font-weight:normal}
 @keyframes spin{to{transform:rotate(360deg)}}
+.eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-bottom:10px}
+.eval-item label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-weight:bold;display:block;font-family:Arial,sans-serif}
+.eval-item p{font-size:13px;color:var(--text);margin-top:1px;font-family:Arial,sans-serif}
+.eval-note{font-size:12px;color:var(--text-mid);font-family:Arial,sans-serif;line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid #e8e4d8}
+.eval-flag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold;font-family:Arial,sans-serif}
+.eval-flag.ok{background:var(--success-bg);color:var(--success);border:1px solid #a3d9b9}
+.eval-flag.warn{background:var(--warning-bg);color:var(--warning);border:1px solid #e8c97a}
+.eval-flag.err{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
+.eval-spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border-strong);border-top-color:var(--navy);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:4px}
 .loading-overlay{position:fixed;inset:0;background:rgba(250,248,243,.8);z-index:200;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:var(--navy);gap:12px}
 @media(max-width:640px){
   /* Layout */
@@ -333,8 +342,19 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         </div>
         <div class="form-group">
           <label>Attach Receipt / Invoice</label>
-          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer">
+          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer" onchange="evaluateReceipt(this)">
           <span style="font-size:11px;color:var(--text-muted);font-family:Arial,sans-serif;margin-top:2px">PDF, image, or Office doc — max 10MB</span>
+        </div>
+      </div>
+
+      <!-- AI Receipt Evaluation -->
+      <div id="receipt-eval-wrap" style="display:none;margin-bottom:16px">
+        <div id="receipt-eval-box" style="background:#f8f6f0;border:1px solid #e0dbd0;border-radius:6px;padding:14px 16px;font-family:Arial,sans-serif;font-size:13px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;font-size:12px">🤖 AI Receipt Analysis</span>
+            <span id="eval-status" style="font-size:12px;color:var(--text-muted)"></span>
+          </div>
+          <div id="eval-content"></div>
         </div>
       </div>
 
@@ -613,6 +633,101 @@ function renderLI() {
   calcTotal();
 }
 
+// ─── AI RECEIPT EVALUATION ────────────────────────────────────
+async function evaluateReceipt(input) {
+  const file = input.files?.[0];
+  const wrap = document.getElementById('receipt-eval-wrap');
+  const status = document.getElementById('eval-status');
+  const content = document.getElementById('eval-content');
+
+  if (!file) { wrap.style.display = 'none'; return; }
+
+  // Only evaluate images and PDFs (skip Word/Excel)
+  const evalTypes = ['image/jpeg','image/png','image/gif','image/webp','application/pdf'];
+  if (!evalTypes.includes(file.type)) {
+    wrap.style.display = 'block';
+    content.innerHTML = `<div class="eval-flag warn">⚠ Auto-analysis not available for this file type — please review manually.</div>`;
+    status.textContent = '';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  status.textContent = '';
+  content.innerHTML = `<span class="eval-spinner"></span><span style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:13px">Analyzing receipt…</span>`;
+
+  try {
+    // Convert file to base64
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const mediaType = file.type === 'application/pdf' ? 'application/pdf' : file.type;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: mediaType === 'application/pdf' ? 'document' : 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 }
+            },
+            {
+              type: 'text',
+              text: `You are reviewing a receipt or invoice submitted with a nonprofit check request. Extract the key details and assess legitimacy. Reply ONLY with a JSON object, no markdown, no preamble:
+{
+  "vendor": "vendor or payee name, or Unknown",
+  "date": "date on receipt MM/DD/YYYY or Unknown",
+  "amount": "total amount with $ sign or Unknown",
+  "description": "brief description of what was purchased (max 12 words)",
+  "flag": "ok | warn | err",
+  "flag_label": "Looks legitimate | Review recommended | Concerns found",
+  "notes": "1-2 sentence assessment for the approver. Note any missing info, illegible areas, mismatched amounts, or anything unusual."
+}`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+
+    let result;
+    try {
+      result = JSON.parse(text.replace(/```json|```/g,'').trim());
+    } catch {
+      throw new Error('Could not parse AI response');
+    }
+
+    const flagClass = result.flag === 'ok' ? 'ok' : result.flag === 'warn' ? 'warn' : 'err';
+    const flagIcon  = result.flag === 'ok' ? '✓' : result.flag === 'warn' ? '⚠' : '✕';
+
+    content.innerHTML = `
+      <div class="eval-grid">
+        <div class="eval-item"><label>Vendor</label><p>${esc(result.vendor||'Unknown')}</p></div>
+        <div class="eval-item"><label>Date</label><p>${esc(result.date||'Unknown')}</p></div>
+        <div class="eval-item"><label>Amount</label><p>${esc(result.amount||'Unknown')}</p></div>
+        <div class="eval-item"><label>Description</label><p>${esc(result.description||'—')}</p></div>
+      </div>
+      <span class="eval-flag ${flagClass}">${flagIcon} ${esc(result.flag_label||'')}</span>
+      ${result.notes ? `<div class="eval-note">${esc(result.notes)}</div>` : ''}`;
+    status.textContent = '— powered by Claude';
+
+  } catch(e) {
+    content.innerHTML = `<div class="eval-flag warn">⚠ Analysis unavailable — please review manually.</div>`;
+    status.textContent = '';
+    console.warn('[Receipt eval]', e.message);
+  }
+}
+
 // ─── SUBMIT ───────────────────────────────────────────────────
 async function submitRequest() {
   const name     = v('f-name');
@@ -712,6 +827,7 @@ function clearForm() {
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
   const fi = document.getElementById('f-receipt-file');
   if (fi) fi.value = '';
+  document.getElementById('receipt-eval-wrap').style.display = 'none';
   lineItems = []; renderLI(); addLI();
 }
 
