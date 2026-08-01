@@ -382,10 +382,9 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
       <!-- Resend -->
       <div class="adm-sec">
         <h3>Email Service (Resend)</h3>
-        <p class="adm-note">API key used for all notification emails. From: <strong>r.conn@tamparoughriders.org</strong></p>
-        <div class="arow"><span class="slbl">Resend API Key</span><input type="password" id="a-rk" placeholder="re_…" style="grid-column:span 2"><button class="asave" onclick="saveResendKey()">Save</button></div>
+        <p class="adm-note">The Resend API key is stored as a <strong>Netlify environment variable</strong> (<code>RESEND_API_KEY</code>) and injected at build time — it never appears in the source code or database. To update the key: go to your Netlify site → <em>Site configuration → Environment variables</em>, update <code>RESEND_API_KEY</code>, then trigger a redeploy. From: <strong>r.conn@tamparoughriders.org</strong></p>
         <div class="test-row">
-          <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">Send test to:</span>
+          <span style="font-family:Arial,sans-serif;font-size:13px;color:var(--text-mid);white-space:nowrap">Send test email to:</span>
           <input type="email" id="test-addr" placeholder="you@email.com">
           <button class="asave" onclick="sendTest()">Send Test</button>
         </div>
@@ -424,7 +423,7 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
 // ─── SUPABASE ───────────────────────────────────────────────
 const SUPA_URL = 'https://qyoqyeaqacdjstvkonwx.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5b3F5ZWFxYWNkanN0dmtvbnd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NjUzMzMsImV4cCI6MjA4ODM0MTMzM30.Ln-i6P0qZlmGYoD-bC9xAlggyjt36bXXQfrqmHi-LLo';
-const RESEND_KEY = ''; // Set via Admin tab — stored in Supabase cr_settings
+const RESEND_KEY = '%%RESEND_API_KEY%%'; // Injected at build time by Netlify
 const FROM_EMAIL = 'Rough Riders Check Request <r.conn@tamparoughriders.org>';
 
 const { createClient } = supabase;
@@ -866,7 +865,6 @@ function loadAdminFields() {
   const om = settings['office_mgr'] || {};
   document.getElementById('a-om-n').value = om.name  || '';
   document.getElementById('a-om-e').value = om.email || '';
-  document.getElementById('a-rk').value        = settings['resend_key'] || '';
   document.getElementById('a-test-addr').value = settings['test_email']  || '';
   renderAccountEditor();
   renderClassEditor();
@@ -1033,7 +1031,13 @@ function resolveRecipient(realTo, realName) {
 }
 
 // ─── EMAIL ───────────────────────────────────────────────────
-function getResendKey() { return settings['resend_key'] || ''; }
+function getResendKey() {
+  // RESEND_KEY is injected at Netlify build time via netlify.toml [[plugins]] sed replacement.
+  // Falls back to cr_settings 'resend_key' if not substituted (local dev).
+  const buildKey = '%%RESEND_API_KEY%%';
+  if (RESEND_KEY && !RESEND_KEY.startsWith('%%')) return RESEND_KEY;
+  return settings['resend_key'] || '';
+}
 
 async function callResend(to, subject, html, testPrefix) {
   const key = getResendKey();
