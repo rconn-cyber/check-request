@@ -666,38 +666,18 @@ async function evaluateReceipt(input) {
 
     const mediaType = file.type === 'application/pdf' ? 'application/pdf' : file.type;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/.netlify/functions/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 600,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: mediaType === 'application/pdf' ? 'document' : 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64 }
-            },
-            {
-              type: 'text',
-              text: `You are reviewing a receipt or invoice submitted with a nonprofit check request. Extract the key details and assess legitimacy. Reply ONLY with a JSON object, no markdown, no preamble:
-{
-  "vendor": "vendor or payee name, or Unknown",
-  "date": "date on receipt MM/DD/YYYY or Unknown",
-  "amount": "total amount with $ sign or Unknown",
-  "description": "brief description of what was purchased (max 12 words)",
-  "flag": "ok | warn | err",
-  "flag_label": "Looks legitimate | Review recommended | Concerns found",
-  "notes": "1-2 sentence assessment for the approver. Note any missing info, illegible areas, mismatched amounts, or anything unusual."
-}`
-            }
-          ]
-        }]
+        action: 'analyze-receipt',
+        base64,
+        mediaType
       })
     });
 
     const data = await response.json();
+    // data is the Anthropic response envelope
     const text = data.content?.[0]?.text || '';
 
     let result;
