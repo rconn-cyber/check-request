@@ -340,20 +340,26 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
           <textarea id="f-purpose" placeholder="Describe the purpose of this payment and how it benefits the organization…"></textarea>
         </div>
       </div>
-      <div class="form-row c2">
-        <div class="form-group">
-          <label>Receipts / Invoices</label>
-          <select id="f-receipts">
-            <option value="">— Select —</option>
-            <option>Yes — attached below</option>
-            <option>Yes — will email separately</option>
-            <option>Not available</option>
-          </select>
-        </div>
+
+      <!-- Receipt section — dynamic based on file selection -->
+      <div class="fsec" style="margin-top:8px">Receipts / Invoices</div>
+      <div class="form-row c2" id="receipt-upload-row">
         <div class="form-group">
           <label>Attach Receipt / Invoice</label>
-          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer" onchange="evaluateReceipt(this)">
+          <input type="file" id="f-receipt-file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx" style="padding:6px 10px;font-size:13px;cursor:pointer" onchange="onReceiptFileChange(this)">
           <span style="font-size:11px;color:var(--text-muted);font-family:Arial,sans-serif;margin-top:2px">PDF, image, or Office doc — max 10MB</span>
+        </div>
+        <!-- No-receipt reason — shown only when no file selected -->
+        <div class="form-group" id="no-receipt-reason-wrap">
+          <label>Reason (no receipt) <span class="req">*</span></label>
+          <select id="f-receipts" onchange="onReceiptSelectChange(this)">
+            <option value="">— Select reason —</option>
+            <option value="Will email separately">Will email separately</option>
+            <option value="Receipt lost">Receipt lost</option>
+            <option value="Vendor does not provide receipts">Vendor does not provide receipts</option>
+            <option value="Purchase under $25 — no receipt required">Purchase under $25 — no receipt required</option>
+            <option value="Other — see notes">Other — see notes</option>
+          </select>
         </div>
       </div>
 
@@ -707,6 +713,29 @@ function renderLI() {
 }
 
 // ─── AI RECEIPT EVALUATION ────────────────────────────────────
+function onReceiptFileChange(input) {
+  const hasFile = input.files?.length > 0;
+  const noReceiptWrap = document.getElementById('no-receipt-reason-wrap');
+  const receiptSel = document.getElementById('f-receipts');
+
+  if (hasFile) {
+    // Hide reason dropdown, clear it
+    noReceiptWrap.style.display = 'none';
+    receiptSel.value = '';
+    evaluateReceipt(input);
+  } else {
+    // Show reason dropdown
+    noReceiptWrap.style.display = 'flex';
+    noReceiptWrap.style.flexDirection = 'column';
+    // Clear eval panel
+    document.getElementById('receipt-eval-wrap').style.display = 'none';
+  }
+}
+
+function onReceiptSelectChange(sel) {
+  // If they pick a reason and then attach a file, file takes priority — handled in onReceiptFileChange
+}
+
 function parseReceiptDate(str) {
   // Converts Claude's MM/DD/YYYY (or common variants) to YYYY-MM-DD for <input type="date">
   if (!str || str === 'Unknown') return '';
@@ -841,6 +870,17 @@ async function submitRequest() {
   if (!lineItems.length) { toast('Add at least one line item.','warn'); return; }
   if (getTotal() <= 0)   { toast('Total must be greater than $0.','warn'); return; }
 
+  // Receipt validation — must have file OR reason
+  const fileInput = document.getElementById('f-receipt-file');
+  const file = fileInput?.files?.[0];
+  const receiptReason = v('f-receipts');
+  if (!file && !receiptReason) {
+    toast('Please attach a receipt or select a reason for not having one.','warn'); return;
+  }
+
+  // Set the receipts field value
+  const receiptsValue = file ? `Attached: ${file.name}` : receiptReason;
+
   const ap  = getApprovers(chairN, chairE);
   const id  = 'RR-' + String(Date.now()).slice(-6);
   const now = new Date().toISOString();
@@ -851,8 +891,6 @@ async function submitRequest() {
   // ── Upload receipt file if provided ──
   let receipt_url = null;
   let receipt_filename = null;
-  const fileInput = document.getElementById('f-receipt-file');
-  const file = fileInput?.files?.[0];
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
       toast('File too large — max 10MB.','warn');
@@ -883,7 +921,7 @@ async function submitRequest() {
     check_delivery: delivery,
     qb_account: null, qb_class: null,
     purpose, notes: v('f-notes'),
-    receipts: v('f-receipts'),
+    receipts: receiptsValue,
     receipt_url, receipt_filename,
     line_items: lineItems.map(li => ({desc:li.desc,date:li.date,amount:parseFloat(li.amount)||0})),
     total: getTotal(),
@@ -922,17 +960,20 @@ function getApprovers(chairName, chairEmail) {
 
 function clearForm() {
   ['f-name','f-email','f-phone','f-chair-name','f-chair-email','f-payee','f-address','f-purpose','f-notes'].forEach(id => document.getElementById(id).value='');
-  ['f-receipts','f-delivery'].forEach(id => document.getElementById(id).value='');
+  ['f-delivery'].forEach(id => document.getElementById(id).value='');
   document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
   const fi = document.getElementById('f-receipt-file');
   if (fi) fi.value = '';
+  document.getElementById('f-receipts').value = '';
+  document.getElementById('no-receipt-reason-wrap').style.display = 'flex';
+  document.getElementById('no-receipt-reason-wrap').style.flexDirection = 'column';
   document.getElementById('receipt-eval-wrap').style.display = 'none';
   lineItems = []; renderLI(); addLI();
 }
 
 // ─── QUEUE / HISTORY ──────────────────────────────────────────
 function updateQCount() {
-  document.getElementById('qcount').textContent = allRequests.filter(r=>r.status==='pending').length;
+  document.getElementById('qcount').textContent = allRequests.filter(r => r.status==='pending' && r.current_step < (r.approvers||[]).length).length;
 }
 function filterQ(btn, f) {
   currentFilter = f;
@@ -954,13 +995,15 @@ function renderHistory() {
 
 function reqCard(r) {
   const aps = r.approvers || [];
+  // Treat as complete if step has passed all approvers regardless of status field
+  const effectiveStatus = (r.current_step >= aps.length && r.status === 'pending') ? 'complete' : r.status;
   const pipeline = aps.map((ap, i) => {
     let cls = 'pending';
-    if (r.status==='rejected' && r.current_step===i) cls = 'rejected';
-    else if (i < r.current_step || r.status==='complete') cls = 'done';
-    else if (i === r.current_step && r.status==='pending') cls = 'current';
+    if (effectiveStatus==='rejected' && r.current_step===i) cls = 'rejected';
+    else if (i < r.current_step || effectiveStatus==='complete') cls = 'done';
+    else if (i === r.current_step && effectiveStatus==='pending') cls = 'current';
     const dot = cls==='done' ? '✓' : cls==='rejected' ? '✕' : (i+1);
-    const connCls = (i < r.current_step || r.status==='complete') ? ' done' : '';
+    const connCls = (i < r.current_step || effectiveStatus==='complete') ? ' done' : '';
     const conn = i < aps.length-1 ? `<div class="pip-conn${connCls}"></div>` : '';
     return `<div class="pip-step"><div class="pip-dot ${cls}">${dot}</div><div class="pip-lbl">${(ap.name||'').split(' ')[0]}</div></div>${conn}`;
   }).join('');
@@ -970,7 +1013,7 @@ function reqCard(r) {
     <div class="rch">
       <div class="rch-l">
         <div><div class="rid">${r.id}</div><div class="rpayee">${esc(r.payee)}</div></div>
-        <span class="badge ${bmap[r.status]||'b-pending'}">${slbl[r.status]||r.status}</span>
+        <span class="badge ${bmap[effectiveStatus]||'b-pending'}">${slbl[effectiveStatus]||effectiveStatus}</span>
       </div>
       <div class="ramt">$${Number(r.total).toFixed(2)}</div>
     </div>
@@ -999,19 +1042,25 @@ function renderModal(id) {
   const r = allRequests.find(x => x.id === id); if (!r) return;
   const actions = allActions[id] || [];
   const aps = r.approvers || [];
+  // Defensive: if step has passed all approvers, treat as complete
+  const effectiveStatus = (r.current_step >= aps.length && r.status === 'pending') ? 'complete' : r.status;
+  // If status is stuck, fix it in Supabase silently
+  if (effectiveStatus === 'complete' && r.status !== 'complete') {
+    db.from('cr_requests').update({status:'complete'}).eq('id',id).then(() => loadRequests());
+  }
 
   document.getElementById('m-title').textContent = `${r.payee} — $${Number(r.total).toFixed(2)}`;
   document.getElementById('m-id').textContent = r.id;
 
   const pipeline = aps.map((ap, i) => {
     let cls = 'pending';
-    if (r.status==='rejected' && r.current_step===i) cls = 'rejected';
-    else if (i < r.current_step || r.status==='complete') cls = 'done';
-    else if (i === r.current_step && r.status==='pending') cls = 'current';
+    if (effectiveStatus==='rejected' && r.current_step===i) cls = 'rejected';
+    else if (i < r.current_step || effectiveStatus==='complete') cls = 'done';
+    else if (i === r.current_step && effectiveStatus==='pending') cls = 'current';
     const dot = cls==='done' ? '✓' : cls==='rejected' ? '✕' : (i+1);
     const stepAct = actions.find(a => a.step_index===i && a.action==='approved');
     const date = stepAct ? new Date(stepAct.created_at).toLocaleDateString() : '';
-    const connCls = (i < r.current_step || r.status==='complete') ? ' done' : '';
+    const connCls = (i < r.current_step || effectiveStatus==='complete') ? ' done' : '';
     const conn = i < aps.length-1 ? `<div class="dpc${connCls}"></div>` : '';
     return `<div class="dps"><div class="dpd ${cls}">${dot}</div><div class="dplbl">${esc((ap.name||'').split('(')[0].trim())}</div><div class="dpsub">${esc(ap.title||'')}</div>${date?`<div class="dpsub" style="color:var(--success)">${date}</div>`:''}</div>${conn}`;
   }).join('');
@@ -1029,7 +1078,7 @@ function renderModal(id) {
     return `<div class="lent"><div class="ldot ${cls}">${icon}</div><div><div class="ltitle">${title}</div><div class="lsub">${new Date(a.created_at).toLocaleString()}</div>${a.note?`<div class="lnote">💬 ${esc(a.note)}</div>`:''}</div></div>`;
   }).join('');
 
-  const canAct = r.status === 'pending';
+  const canAct = effectiveStatus === 'pending';
   const curAp  = aps[r.current_step] || {};
   const isAccounting = r.current_step === 1; // Step 2 = index 1
   const acctOptions = qbAccounts.map(a => {
@@ -1072,8 +1121,8 @@ function renderModal(id) {
           <button class="btn-reject"  onclick="doReject('${r.id}')">✕ Reject</button>
         </div>
       </div>`
-    : r.status==='complete'
-      ? `<div style="background:var(--success-bg);color:var(--success);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✓ All 4 approvals complete — OK to Pay notice sent to Office Manager.</div>`
+    : effectiveStatus==='complete'
+      ? `<div style="background:var(--success-bg);color:var(--success);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✓ All 4 approvals complete — OK to Pay notice sent to Office Administrator.</div>`
       : `<div style="background:var(--danger-bg);color:var(--danger);padding:14px 18px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px;margin-top:20px;font-weight:bold">✕ This request was rejected.</div>`;
 
   document.getElementById('m-body').innerHTML = `
