@@ -387,9 +387,9 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
         </div>
       </div>
 
-      <div class="test-mode-row" onclick="toggleTestMode()" id="test-mode-row">
+      <div class="test-mode-row" id="test-mode-row" onclick="toggleTestMode()">
         <input type="checkbox" id="test-mode-chk" onclick="event.stopPropagation();toggleTestMode()">
-        <label for="test-mode-chk">🧪 Test Mode <span class="tm-sub">— all emails redirect to the test address set in Admin</span></label>
+        <label for="test-mode-chk">🧪 Test Mode <span class="tm-sub">— all emails (including approvals) redirect to test address · toggle in Admin</span></label>
       </div>
 
       <div class="form-actions">
@@ -495,7 +495,14 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
       <!-- Test Mode -->
       <div class="adm-sec">
         <h3>Test Mode</h3>
-        <p class="adm-note">When Test Mode is enabled on the form, all notification emails (approvals, rejections, OK to Pay) are sent to the address below instead of the real recipients. Names are preserved in subject lines and email bodies.</p>
+        <p class="adm-note">When enabled, ALL emails — submissions, every approval step, rejections, and OK to Pay — are redirected to the address below. Names are preserved so you can verify the correct person would have received each email.</p>
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:#fff8e6;border:1px solid #e8d07a;border-radius:6px;margin-bottom:14px;cursor:pointer" onclick="toggleTestMode()">
+          <input type="checkbox" id="adm-test-mode-chk" onclick="event.stopPropagation();toggleTestMode()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--warning)">
+          <div>
+            <div style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:var(--warning)">Test Mode</div>
+            <div style="font-family:Arial,sans-serif;font-size:12px;color:var(--text-muted)" id="adm-test-mode-status">Loading…</div>
+          </div>
+        </div>
         <div class="arow"><span class="slbl">Test Email Address</span><input type="email" id="a-test-addr" placeholder="you@email.com" style="grid-column:span 2"><button class="asave" onclick="saveTestAddr()">Save</button></div>
       </div>
 
@@ -599,6 +606,10 @@ async function boot() {
     updateQCount();
     document.getElementById('conn-dot').className = 'conn-dot ok';
     document.getElementById('conn-lbl').textContent = 'Connected';
+
+    // Load persistent test mode state
+    testModeOn = settings['test_mode_on'] === true || settings['test_mode_on'] === 'true';
+    updateTestModeBanner();
 
     // ── Handle deep link from email buttons ──
     const params = new URLSearchParams(window.location.search);
@@ -1311,6 +1322,7 @@ function loadAdminFields() {
   document.getElementById('a-om-e').value = om.email || '';
   document.getElementById('a-test-addr').value  = settings['test_email']  || '';
   document.getElementById('a-access-pin').placeholder = settings['access_pin'] ? '(PIN set — enter new to change)' : 'Set PIN for approvers';
+  updateTestModeBanner();
   renderAccountEditor();
   renderClassEditor();
 }
@@ -1457,14 +1469,34 @@ async function addClass() {
 }
 
 // ─── TEST MODE ───────────────────────────────────────────────
-function toggleTestMode() {
+async function toggleTestMode() {
   testModeOn = !testModeOn;
   document.getElementById('test-mode-chk').checked = testModeOn;
+  // Persist to Supabase so Queue approvals also respect test mode
+  await saveSetting('test_mode_on', testModeOn);
+  updateTestModeBanner();
+  if (testModeOn && !settings['test_email']) toast('Set a Test Email Address in Admin first.', 'warn');
+  else toast(testModeOn ? '🧪 Test Mode ON — all emails going to ' + (settings['test_email']||'test address') : 'Test Mode OFF — emails going to real recipients');
+}
+
+function updateTestModeBanner() {
   const addr = settings['test_email'] || '';
   const banner = document.getElementById('test-banner');
   document.getElementById('test-banner-addr').textContent = addr || '(no test address set)';
   banner.classList.toggle('on', testModeOn);
-  if (testModeOn && !addr) toast('Set a Test Email Address in Admin first.', 'warn');
+  // Sync checkboxes
+  const chk = document.getElementById('test-mode-chk');
+  if (chk) chk.checked = testModeOn;
+  const admChk = document.getElementById('adm-test-mode-chk');
+  if (admChk) admChk.checked = testModeOn;
+  // Update admin status label
+  const statusEl = document.getElementById('adm-test-mode-status');
+  if (statusEl) {
+    statusEl.textContent = testModeOn
+      ? `ON — all emails going to ${addr || '(no address set)'}`
+      : `OFF — emails going to real recipients`;
+    statusEl.style.color = testModeOn ? 'var(--warning)' : 'var(--text-muted)';
+  }
 }
 
 function resolveRecipient(realTo, realName) {
@@ -1602,8 +1634,7 @@ async function saveTestAddr() {
   if (!addr) { toast('Enter an email address.','warn'); return; }
   try {
     await saveSetting('test_email', addr);
-    // Update banner if test mode is on
-    document.getElementById('test-banner-addr').textContent = addr;
+    updateTestModeBanner();
     toast('✓ Test email address saved: ' + addr);
   } catch(e) { toast('Error: '+e.message,'warn'); }
 }
