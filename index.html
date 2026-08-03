@@ -405,7 +405,6 @@ body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:v
       <span style="font-weight:bold;color:var(--text-mid);font-family:Arial,sans-serif;font-size:13px">Filter:</span>
       <button class="flt active" onclick="filterQ(this,'all')">All</button>
       <button class="flt" onclick="filterQ(this,'pending')">Pending</button>
-      <button class="flt" onclick="filterQ(this,'complete')">Approved</button>
       <button class="flt" onclick="filterQ(this,'rejected')">Rejected</button>
       <button class="btn-sec" style="margin-left:auto;padding:5px 14px;font-size:13px" onclick="loadRequests()">↻ Refresh</button>
     </div>
@@ -994,9 +993,14 @@ function filterQ(btn, f) {
 }
 function renderQueue() {
   const list = document.getElementById('q-list');
-  const items = currentFilter === 'all' ? allRequests : allRequests.filter(r=>r.status===currentFilter);
-  if (!items.length) { list.innerHTML = `<div class="empty"><div class="ico">📋</div><p>No requests in this view.</p></div>`; return; }
-  list.innerHTML = items.map(r => reqCard(r)).join('');
+  const filtered = allRequests.filter(r => {
+    const effectiveStatus = (r.current_step >= (r.approvers||[]).length && r.status === 'pending') ? 'complete' : r.status;
+    if (effectiveStatus === 'complete') return false; // completed go to History only
+    if (currentFilter === 'all') return true;
+    return effectiveStatus === currentFilter;
+  });
+  if (!filtered.length) { list.innerHTML = `<div class="empty"><div class="ico">📋</div><p>No requests in this view.</p></div>`; return; }
+  list.innerHTML = filtered.map(r => reqCard(r)).join('');
 }
 function renderHistory() {
   const list = document.getElementById('h-list');
