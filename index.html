@@ -1004,8 +1004,12 @@ function renderQueue() {
 }
 function renderHistory() {
   const list = document.getElementById('h-list');
-  if (!allRequests.length) { list.innerHTML = `<div class="empty"><div class="ico">🗂️</div><p>No requests yet.</p></div>`; return; }
-  list.innerHTML = allRequests.map(r => reqCard(r)).join('');
+  const hist = allRequests.filter(r => {
+    const effectiveStatus = (r.current_step >= (r.approvers||[]).length && r.status === 'pending') ? 'complete' : r.status;
+    return effectiveStatus === 'complete' || effectiveStatus === 'rejected';
+  });
+  if (!hist.length) { list.innerHTML = `<div class="empty"><div class="ico">🗂️</div><p>No completed requests yet.</p></div>`; return; }
+  list.innerHTML = hist.map(r => reqCard(r)).join('');
 }
 
 function reqCard(r) {
